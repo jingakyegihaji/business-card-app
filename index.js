@@ -1,13 +1,13 @@
 const express = require("express");
-const app = express();
+const path = require("path");
 
-// Render가 지정해주는 포트를 사용해야 함
+const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.get("/", (req, res) => {
-  res.send("Business Card App is running 🚀");
-});
+// public 폴더 정적 파일 제공
+app.use(express.static(path.join(__dirname, "public")));
 
+// 헬스 체크 유지
 app.get("/health", (req, res) => {
   res.json({ status: "ok" });
 });
