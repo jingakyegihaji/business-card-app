@@ -19,11 +19,22 @@ app.post("/api/save", upload.single("pdf"), async (req, res) => {
     }
 
     const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: Number(process.env.SMTP_PORT || 587),
-      secure: false,
-      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
-    });
+  host: process.env.SMTP_HOST,
+  port: 587,
+  secure: false,          // ✅ 587은 무조건 false
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS
+  },
+  requireTLS: true,       // ✅ STARTTLS 강제
+  tls: {
+    servername: "smtp.gmail.com"
+  },
+  connectionTimeout: 20000,
+  greetingTimeout: 20000,
+  socketTimeout: 20000
+});
+
 
     await transporter.sendMail({
       from: process.env.MAIL_FROM,
