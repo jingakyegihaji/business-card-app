@@ -255,8 +255,8 @@
         </div>
 
         <div class="btns">
-          <button class="primary" id="btnPng">⬇️ PNG 저장</button>
-          <button id="btnPdf">📄 PDF 저장 (90×50mm)</button>
+           <button class="primary" id="btnSend">전송하기</button>
+
         </div>
 
         <div class="hint">
@@ -423,57 +423,55 @@
     }
 
     /***********************
-     * 3) PNG 저장
+     * 3) email 전송
      ***********************/
-    const btnPng = document.getElementById("btnPng");
-    btnPng.addEventListener("click", async () => {
-      try{
-        btnPng.disabled = true;
-        showToast("PNG 캡처 중…");
-        const canvas = await capturePreviewCanvas();
-        const dataUrl = canvas.toDataURL("image/png");
-        downloadDataUrl(dataUrl, `business_card_${elTemplateSel.value}_${yyyymmdd_hhmmss()}.png`);
-        showToast("PNG 저장 완료!");
-      } catch(e){
-        console.error(e);
-        alert("PNG 저장 중 오류가 발생했습니다. 콘솔 로그를 확인해주세요.");
-      } finally {
-        btnPng.disabled = false;
-      }
+   const btnSend = document.getElementById("btnSend");
+
+async function makePdfBlobFromPreview() {
+  const canvas = await html2canvas(document.querySelector("#preview"), {
+    scale: 3,
+    useCORS: true
+  });
+
+  const imgData = canvas.toDataURL("image/png");
+  const { jsPDF } = window.jspdf;
+
+  const pdf = new jsPDF({
+    orientation: "landscape",
+    unit: "mm",
+    format: [90, 50]
+  });
+
+  pdf.addImage(imgData, "PNG", 0, 0, 90, 50);
+  return pdf.output("blob"); // ⬅️ 다운로드 아님
+}
+
+btnSend.addEventListener("click", async () => {
+  btnSend.disabled = true;
+  alert("전송 중입니다…");
+
+  try {
+    const pdfBlob = await makePdfBlobFromPreview();
+
+    const formData = new FormData();
+    formData.append("pdf", pdfBlob, "business_card.pdf");
+
+    const res = await fetch("/api/save", {
+      method: "POST",
+      body: formData
     });
 
-    /***********************
-     * 4) PDF 저장 (90x50mm)
-     ***********************/
-    const btnPdf = document.getElementById("btnPdf");
-    btnPdf.addEventListener("click", async () => {
-      try{
-        btnPdf.disabled = true;
-        showToast("PDF 생성 중…");
+    if (!res.ok) throw new Error("send failed");
 
-        const canvas = await capturePreviewCanvas();
-        const imgData = canvas.toDataURL("image/png");
+    alert("전송 완료! 담당자 이메일로 발송되었습니다.");
+  } catch (e) {
+    console.error(e);
+    alert("전송 실패. 잠시 후 다시 시도해주세요.");
+  } finally {
+    btnSend.disabled = false;
+  }
+});
 
-        // jsPDF: 커스텀 사이즈(단위 mm)로 90x50mm
-        const { jsPDF } = window.jspdf;
-        const pdf = new jsPDF({
-          orientation: "landscape",
-          unit: "mm",
-          format: [90, 50]
-        });
-
-        // 페이지를 꽉 채우기: 90x50mm에 이미지 맞춰 넣기
-        pdf.addImage(imgData, "PNG", 0, 0, 90, 50, undefined, "FAST");
-        pdf.save(`business_card_${elTemplateSel.value}_${yyyymmdd_hhmmss()}.pdf`);
-
-        showToast("PDF 저장 완료!");
-      } catch(e){
-        console.error(e);
-        alert("PDF 저장 중 오류가 발생했습니다. 콘솔 로그를 확인해주세요.");
-      } finally {
-        btnPdf.disabled = false;
-      }
-    });
 
     /***********************
      * 초기화
