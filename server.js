@@ -1,3 +1,5 @@
+console.log("BOOT: server.js is running");
+console.log("BOOT: routes include /api/test-email");
 const express = require("express");
 const path = require("path");
 const multer = require("multer");
