@@ -8,36 +8,41 @@
     body { font-family: Arial, sans-serif; margin: 0; background:#f6f7fb; }
     .wrap { max-width: 1100px; margin: 24px auto; padding: 16px; }
     h1 { margin: 0 0 12px; }
-    .grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 16px; }
+    .grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 16px; align-items: start; }
     .card { background:#fff; border-radius: 12px; padding: 14px; box-shadow: 0 2px 10px rgba(0,0,0,.06); }
 
     .templates { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
     .tpl { border: 2px solid transparent; border-radius: 10px; padding: 8px; cursor: pointer; background:#fafafa; }
     .tpl.selected { border-color:#6d5efc; background:#f1efff; }
-    .tpl .img { height: 80px; border-radius: 8px; background: #ddd; background-size: cover; background-position: center; }
+    .tpl .img { height: 80px; border-radius: 8px; background: #e7e7e7; display:flex; align-items:center; justify-content:center; font-size:12px; color:#666; }
 
     label { display:block; margin: 10px 0 6px; font-size: 13px; color:#333; }
     input { width: 100%; padding: 10px; border-radius: 10px; border: 1px solid #ddd; }
 
+    /* ✅ 미리보기 박스는 반드시 "기준점(position:relative)" + 높이 확보 */
     .preview{
-      width:100%;
-      aspect-ratio: 90 / 50;     /* 명함 비율 */
-      border-radius:12px;
-      background:#111;
-      position:relative;
-      overflow:hidden;
-      box-shadow:0 6px 18px rgba(0,0,0,.12);
+      width: 100%;
+      aspect-ratio: 90 / 50;
+      min-height: 220px; /* 브라우저가 aspect-ratio를 못 먹는 경우 대비 */
+      border-radius: 12px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 6px 18px rgba(0,0,0,.12);
+      border: 1px solid rgba(0,0,0,.08);
+      background: #111;
       background-size: cover;
       background-position: center;
       background-repeat: no-repeat;
     }
 
+    /* ✅ 좌표 배치 텍스트 */
     .field{
       position:absolute;
       transform: translate(0, -50%);
       white-space: nowrap;
       color:#fff;
       text-shadow: 0 2px 6px rgba(0,0,0,.35);
+      user-select: none;
     }
 
     .hint { font-size: 12px; color:#666; margin-top: 8px; line-height: 1.4; }
@@ -48,6 +53,7 @@
     <h1>명함 주문 MVP</h1>
 
     <div class="grid">
+      <!-- 왼쪽 카드 -->
       <div class="card">
         <h3 style="margin:0 0 10px;">1) 템플릿 선택</h3>
         <div class="templates" id="templates"></div>
@@ -59,19 +65,22 @@
         <label>이메일</label><input id="email" placeholder="test@company.com" />
 
         <div class="hint">
-          지금은 “JSON 좌표형”으로 텍스트를 배치하는 단계야.<br/>
-          다음 단계에서 회사별 필드/폰트/백오피스까지 확장 가능 😄
+          ✅ 지금은 “JSON 좌표형” 테스트 단계야.<br/>
+          이미지가 없어도 템플릿별 배경(그라데이션)으로 동작 확인 가능!
         </div>
       </div>
 
+      <!-- 오른쪽 카드 -->
       <div class="card">
         <h3 style="margin:0 0 10px;">미리보기</h3>
+
         <div class="preview" id="preview">
           <div class="field" id="f_name">홍길동</div>
           <div class="field" id="f_role">Sales Manager</div>
           <div class="field" id="f_phone">010-1234-5678</div>
           <div class="field" id="f_email">test@company.com</div>
         </div>
+
         <div class="hint">
           템플릿 선택/입력값 변경이 즉시 반영되면 성공.
         </div>
@@ -80,44 +89,47 @@
   </div>
 
   <script>
-    // 1) 템플릿 이미지 목록(썸네일/배경에 공통 사용)
+    // 템플릿 목록 (이미지 없어도 OK)
     const tplData = [
-      { id: "tpl1", name: "Template 1", img: "/templates/tpl1.png" },
-      { id: "tpl2", name: "Template 2", img: "/templates/tpl2.png" },
-      { id: "tpl3", name: "Template 3", img: "/templates/tpl3.png" }
+      { id: "tpl1", name: "Template 1", img: "" },
+      { id: "tpl2", name: "Template 2", img: "" },
+      { id: "tpl3", name: "Template 3", img: "" }
     ];
 
-    // 2) JSON 좌표 템플릿 설정(일단 tpl1만 예시로; tpl2/tpl3는 복붙해서 좌표만 바꾸면 됨)
+    // JSON 좌표(템플릿별로 좌표 다르게 예시)
     const templateConfig = {
       templates: [
         {
           id: "tpl1",
-          background: "/templates/tpl1.png",
+          background: null,
+          fallbackBg: "linear-gradient(135deg,#111,#666)",
           fields: {
-            name:  { xPct: 8,  yPct: 68, fontSize: 18, fontWeight: 700, color: "#ffffff" },
-            role:  { xPct: 8,  yPct: 80, fontSize: 12, fontWeight: 400, color: "#ffffff" },
-            phone: { xPct: 8,  yPct: 92, fontSize: 11, fontWeight: 400, color: "#ffffff" },
-            email: { xPct: 92, yPct: 92, fontSize: 11, fontWeight: 400, color: "#ffffff", align: "right" }
+            name:  { xPct: 8,  yPct: 70, fontSize: 20, fontWeight: 700 },
+            role:  { xPct: 8,  yPct: 82, fontSize: 12, fontWeight: 400 },
+            phone: { xPct: 8,  yPct: 92, fontSize: 11, fontWeight: 400 },
+            email: { xPct: 92, yPct: 92, fontSize: 11, fontWeight: 400, align: "right" }
           }
         },
         {
           id: "tpl2",
-          background: "/templates/tpl2.png",
+          background: null,
+          fallbackBg: "linear-gradient(135deg,#0b1b3a,#244a8f)",
           fields: {
-            name:  { xPct: 10, yPct: 30, fontSize: 18, fontWeight: 700, color: "#ffffff" },
-            role:  { xPct: 10, yPct: 42, fontSize: 12, fontWeight: 400, color: "#ffffff" },
-            phone: { xPct: 10, yPct: 80, fontSize: 11, fontWeight: 400, color: "#ffffff" },
-            email: { xPct: 10, yPct: 90, fontSize: 11, fontWeight: 400, color: "#ffffff" }
+            name:  { xPct: 10, yPct: 32, fontSize: 20, fontWeight: 700 },
+            role:  { xPct: 10, yPct: 44, fontSize: 12, fontWeight: 400 },
+            phone: { xPct: 10, yPct: 82, fontSize: 11, fontWeight: 400 },
+            email: { xPct: 10, yPct: 92, fontSize: 11, fontWeight: 400 }
           }
         },
         {
           id: "tpl3",
-          background: "/templates/tpl3.png",
+          background: null,
+          fallbackBg: "linear-gradient(135deg,#1b3a0b,#6aa84f)",
           fields: {
-            name:  { xPct: 60, yPct: 30, fontSize: 18, fontWeight: 700, color: "#ffffff", align: "right" },
-            role:  { xPct: 60, yPct: 42, fontSize: 12, fontWeight: 400, color: "#ffffff", align: "right" },
-            phone: { xPct: 60, yPct: 80, fontSize: 11, fontWeight: 400, color: "#ffffff", align: "right" },
-            email: { xPct: 60, yPct: 90, fontSize: 11, fontWeight: 400, color: "#ffffff", align: "right" }
+            name:  { xPct: 92, yPct: 32, fontSize: 20, fontWeight: 700, align: "right" },
+            role:  { xPct: 92, yPct: 44, fontSize: 12, fontWeight: 400, align: "right" },
+            phone: { xPct: 92, yPct: 82, fontSize: 11, fontWeight: 400, align: "right" },
+            email: { xPct: 92, yPct: 92, fontSize: 11, fontWeight: 400, align: "right" }
           }
         }
       ]
@@ -131,11 +143,12 @@
       const t = templateConfig.templates.find(x => x.id === templateId);
       if(!t) return;
 
-      // 배경
-      previewEl.style.backgroundImage = `url(${t.background})`;
+      // 이미지 없으니 fallback 배경으로 동작 확인 확실히
+      previewEl.style.backgroundImage = "none";
+      previewEl.style.background = t.fallbackBg || "#111";
 
-      // 필드
       const map = { name:"f_name", role:"f_role", phone:"f_phone", email:"f_email" };
+
       Object.entries(t.fields).forEach(([key, cfg]) => {
         const el = document.getElementById(map[key]);
         if(!el) return;
@@ -144,6 +157,7 @@
         el.style.top  = (cfg.yPct ?? 0) + "%";
         el.style.fontSize = (cfg.fontSize ?? 12) + "px";
         el.style.fontWeight = (cfg.fontWeight ?? 400);
+        el.style.opacity = (cfg.opacity ?? 1);
         el.style.color = (cfg.color ?? "#fff");
 
         if(cfg.align === "right"){
@@ -162,8 +176,7 @@
         const div = document.createElement("div");
         div.className = "tpl" + (t.id === selected ? " selected" : "");
         div.innerHTML = `
-          <div class="img" style="background-image:url(${t.img});"></div>
-          <div style="margin-top:6px;font-size:12px;">${t.name}</div>
+          <div class="img">${t.name}</div>
         `;
         div.onclick = () => {
           selected = t.id;
@@ -180,13 +193,11 @@
       el.textContent = value || fallback;
     }
 
-    // 입력 이벤트
     document.getElementById("name").addEventListener("input", e => setText("f_name","홍길동", e.target.value));
     document.getElementById("role").addEventListener("input", e => setText("f_role","Sales Manager", e.target.value));
     document.getElementById("phone").addEventListener("input", e => setText("f_phone","010-1234-5678", e.target.value));
     document.getElementById("email").addEventListener("input", e => setText("f_email","test@company.com", e.target.value));
 
-    // 초기 렌더
     renderTemplates();
     applyTemplate(selected);
   </script>
