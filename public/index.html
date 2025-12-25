@@ -16,7 +16,17 @@
     .tpl .img { height: 80px; border-radius: 8px; background: linear-gradient(135deg,#111,#555); }
     label { display:block; margin: 10px 0 6px; font-size: 13px; color:#333; }
     input { width: 100%; padding: 10px; border-radius: 10px; border: 1px solid #ddd; }
-    .preview { height: 240px; border-radius: 12px; background:#111; color:#fff; position: relative; overflow: hidden; }
+    .preview .preview {
+  width: 100%;
+  aspect-ratio: 90 / 50;   /* ⭐ 명함 비율 고정 */
+  border-radius: 12px;
+  background: #111;
+  color: #fff;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 6px 18px rgba(0,0,0,.12);
+}
+
     .p-text { position:absolute; left:16px; bottom:16px; }
     .p-name { font-size: 18px; font-weight: 700; }
     .p-role { font-size: 13px; opacity:.85; margin-top: 4px; }
