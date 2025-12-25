@@ -407,13 +407,18 @@
       const formData = new FormData();
       formData.append("pdf", pdfBlob, "business_card.pdf");
 
-      const res = await fetch("/api/save", { method: "POST", body: formData });
-      if (!res.ok) throw new Error("send failed");
+const res = await fetch("/api/save", { method: "POST", body: formData });
+const data = await res.json().catch(() => ({}));
 
-      alert("전송 완료! 담당자 이메일로 발송되었습니다.");
+if (!res.ok || !data.ok) {
+  throw new Error(data.error || `HTTP ${res.status}`);
+}
+
+alert("전송 완료! 담당자 이메일로 발송되었습니다.");
+
     } catch (e) {
       console.error(e);
-      alert("전송 실패. 서버 로그/환경변수를 확인해주세요.");
+     alert("전송 실패: " + e.message);
     } finally {
       btnSend.disabled = false;
     }
