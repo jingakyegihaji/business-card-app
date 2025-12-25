@@ -27,7 +27,8 @@
   box-shadow: 0 6px 18px rgba(0,0,0,.12);
 }
 
-    .p-text { position:absolute; left:16px; bottom:16px; }
+   .p-text{position:absolute;left:18px;bottom:16px;right:18px;padding:10px 12px;border-radius:10px;background: rgba(0,0,0,.35);backdrop-filter: blur(2px);}
+
     .p-name { font-size: 18px; font-weight: 700; }
     .p-role { font-size: 13px; opacity:.85; margin-top: 4px; }
     .p-line { font-size: 12px; opacity:.8; margin-top: 6px; line-height: 1.5; }
@@ -66,11 +67,12 @@
   </div>
 
   <script>
-    const tplData = [
-      { id: "tpl1", name: "Template 1", bg: "linear-gradient(135deg,#111,#555)" },
-      { id: "tpl2", name: "Template 2", bg: "linear-gradient(135deg,#0b1b3a,#244a8f)" },
-      { id: "tpl3", name: "Template 3", bg: "linear-gradient(135deg,#1b3a0b,#6aa84f)" }
-    ];
+   const tplData = [
+  { id: "tpl1", name: "Template 1", img: "/templates/tpl1.png" },
+  { id: "tpl2", name: "Template 2", img: "/templates/tpl2.png" },
+  { id: "tpl3", name: "Template 3", img: "/templates/tpl3.png" }
+];
+
 
     const templatesEl = document.getElementById("templates");
     const previewEl = document.getElementById("preview");
@@ -82,11 +84,19 @@
       tplData.forEach(t => {
         const div = document.createElement("div");
         div.className = "tpl" + (t.id === selected ? " selected" : "");
-        div.innerHTML = `<div class="img" style="background:${t.bg}"></div>
-                         <div style="margin-top:6px;font-size:12px;">${t.name}</div>`;
+       div.innerHTML = `
+  <div class="img" style="background-image:url(${t.img}); background-size:cover; background-position:center;"></div>
+  <div style="margin-top:6px;font-size:12px;">${t.name}</div>
+`;
+
         div.onclick = () => {
           selected = t.id;
-          previewEl.style.background = t.bg;
+    const cur = tplData.find(x => x.id === selected);
+previewEl.style.backgroundImage = `url(${cur.img})`;
+previewEl.style.backgroundSize = "cover";
+previewEl.style.backgroundPosition = "center";
+previewEl.style.backgroundRepeat = "no-repeat";
+
           renderTemplates();
         };
         templatesEl.appendChild(div);
