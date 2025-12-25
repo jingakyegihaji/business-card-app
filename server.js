@@ -3,35 +3,30 @@ const path = require("path");
 const multer = require("multer");
 
 const app = express();
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 } // 10MB
+});
 
 app.use(express.static(path.join(__dirname, "public")));
 app.get("/health", (_, res) => res.json({ ok: true }));
 
-app.post("/api/save", upload.single("pdf"), async (req, res) => {
-  try {
-    if (!req.file) return res.status(400).json({ ok: false, error: "pdf missing" });
-
-    const required = ["RESEND_API_KEY", "MAIL_FROM", "ADMIN_EMAIL"];
-    const missing = required.filter(k => !process.env[k]);
-    if (missing.length) {
-      return res.status(500).json({ ok: false, error: "Missing env: " + missing.join(", ") });
-    }
+/**
+ * ✅ Resend 연결 테스트 (첨부 없이 메일만)
+ * 브라우저에서: https://<너서비스주소>/api/test-email
+ */
 app.get("/api/test-email", async (req, res) => {
   try {
     const required = ["RESEND_API_KEY", "MAIL_FROM", "ADMIN_EMAIL"];
     const missing = required.filter(k => !process.env[k]);
     if (missing.length) {
-      return res.status(500).json({
-        ok: false,
-        error: "Missing env: " + missing.join(", ")
-      });
+      return res.status(500).json({ ok: false, error: "Missing env: " + missing.join(", ") });
     }
 
     const resp = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${process.env.RESEND_API_KEY}`,
+        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
@@ -46,28 +41,41 @@ app.get("/api/test-email", async (req, res) => {
     if (!resp.ok) {
       return res.status(500).json({
         ok: false,
-        error: data?.message || JSON.stringify(data)
+        error: data?.message || data?.error || JSON.stringify(data)
       });
     }
 
-    res.json({ ok: true, data });
+    return res.json({ ok: true, data });
   } catch (e) {
-    res.status(500).json({ ok: false, error: e.message });
+    console.error("TEST EMAIL FAIL:", e);
+    return res.status(500).json({ ok: false, error: e?.message || String(e) });
   }
 });
 
+/**
+ * ✅ 실제 전송: 브라우저에서 PDF 업로드 받아서 고정 이메일로 전송
+ */
+app.post("/api/save", upload.single("pdf"), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ ok: false, error: "pdf missing" });
+
+    const required = ["RESEND_API_KEY", "MAIL_FROM", "ADMIN_EMAIL"];
+    const missing = required.filter(k => !process.env[k]);
+    if (missing.length) {
+      return res.status(500).json({ ok: false, error: "Missing env: " + missing.join(", ") });
+    }
+
     const base64 = req.file.buffer.toString("base64");
 
-    // Resend API 호출 (HTTPS)
     const resp = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${process.env.RESEND_API_KEY}`,
+        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        from: process.env.MAIL_FROM,         // 예: "Business Card <no-reply@yourdomain.com>"
-        to: [process.env.ADMIN_EMAIL],       // 고정 수신자
+        from: process.env.MAIL_FROM,
+        to: [process.env.ADMIN_EMAIL],
         subject: "명함 저장 요청 (PDF)",
         text: "브라우저에서 생성된 명함 PDF입니다.",
         attachments: [
@@ -81,12 +89,15 @@ app.get("/api/test-email", async (req, res) => {
 
     const data = await resp.json().catch(() => ({}));
     if (!resp.ok) {
-      return res.status(500).json({ ok: false, error: data?.message || "Resend API failed" });
+      return res.status(500).json({
+        ok: false,
+        error: data?.message || data?.error || JSON.stringify(data) || "Resend API failed"
+      });
     }
 
-    return res.json({ ok: true });
+    return res.json({ ok: true, data });
   } catch (e) {
-    console.error("SEND FAIL:", e);
+    console.error("SAVE FAIL:", e);
     return res.status(500).json({ ok: false, error: e?.message || String(e) });
   }
 });
