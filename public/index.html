@@ -283,204 +283,150 @@
 
   <div class="toast" id="toast"></div>
 
-  <script>
-    /***********************
-     * 1) 템플릿 & 렌더
-     ***********************/
-    const templates = [
-      {
-        id: "classic_dark",
-        name: "Classic Dark",
-        style: {
-          // 필요하면 여기서 preview 배경을 템플릿별로 바꿀 수도 있음
-        },
-        fields: {
-          name:   { x: 48,  y: 150, fontSize: 44, fontWeight: 700, letterSpacing: 0.2, align:"left" },
-          title:  { x: 50,  y: 208, fontSize: 22, fontWeight: 400, opacity: 0.9, align:"left" },
-          company:{ x: 50,  y: 76,  fontSize: 26, fontWeight: 600, opacity: 0.95, align:"left" },
-          phone:  { x: 50,  y: 300, fontSize: 20, fontWeight: 400, opacity: 0.9, align:"left" },
-          email:  { x: 50,  y: 330, fontSize: 20, fontWeight: 400, opacity: 0.9, align:"left" },
-        }
-      },
-      {
-        id: "minimal_light",
-        name: "Minimal Light",
-        style: {
-          lightBg: true
-        },
-        fields: {
-          name:   { x: 56,  y: 170, fontSize: 44, fontWeight: 700, color:"#111827", textShadow:"none", align:"left" },
-          title:  { x: 58,  y: 228, fontSize: 22, fontWeight: 400, color:"#374151", textShadow:"none", align:"left" },
-          company:{ x: 58,  y: 88,  fontSize: 26, fontWeight: 600, color:"#111827", textShadow:"none", align:"left" },
-          phone:  { x: 58,  y: 304, fontSize: 20, fontWeight: 400, color:"#374151", textShadow:"none", align:"left" },
-          email:  { x: 58,  y: 334, fontSize: 20, fontWeight: 400, color:"#374151", textShadow:"none", align:"left" },
-        }
+<script>
+  /***********************
+   * 1) 템플릿 & 렌더
+   ***********************/
+  const templates = [
+    {
+      id: "classic_dark",
+      name: "Classic Dark",
+      style: {},
+      fields: {
+        company:{ x: 50,  y: 76,  fontSize: 26, fontWeight: 600, opacity: 0.95, align:"left" },
+        name:   { x: 48,  y: 150, fontSize: 44, fontWeight: 700, letterSpacing: 0.2, align:"left" },
+        title:  { x: 50,  y: 208, fontSize: 22, fontWeight: 400, opacity: 0.9, align:"left" },
+        phone:  { x: 50,  y: 300, fontSize: 20, fontWeight: 400, opacity: 0.9, align:"left" },
+        email:  { x: 50,  y: 330, fontSize: 20, fontWeight: 400, opacity: 0.9, align:"left" },
       }
-    ];
+    },
+    {
+      id: "minimal_light",
+      name: "Minimal Light",
+      style: { lightBg: true },
+      fields: {
+        company:{ x: 58,  y: 88,  fontSize: 26, fontWeight: 600, color:"#111827", textShadow:"none", align:"left" },
+        name:   { x: 56,  y: 170, fontSize: 44, fontWeight: 700, color:"#111827", textShadow:"none", align:"left" },
+        title:  { x: 58,  y: 228, fontSize: 22, fontWeight: 400, color:"#374151", textShadow:"none", align:"left" },
+        phone:  { x: 58,  y: 304, fontSize: 20, fontWeight: 400, color:"#374151", textShadow:"none", align:"left" },
+        email:  { x: 58,  y: 334, fontSize: 20, fontWeight: 400, color:"#374151", textShadow:"none", align:"left" },
+      }
+    }
+  ];
 
-    const elTemplateSel = document.getElementById("templateSel");
-    const elPreview = document.getElementById("preview");
-    const toast = document.getElementById("toast");
+  const elTemplateSel = document.getElementById("templateSel");
+  const elPreview = document.getElementById("preview");
 
-    const inputs = {
-      name: document.getElementById("nameInput"),
-      title: document.getElementById("titleInput"),
-      company: document.getElementById("companyInput"),
-      phone: document.getElementById("phoneInput"),
-      email: document.getElementById("emailInput"),
+  const inputs = {
+    name: document.getElementById("nameInput"),
+    title: document.getElementById("titleInput"),
+    company: document.getElementById("companyInput"),
+    phone: document.getElementById("phoneInput"),
+    email: document.getElementById("emailInput"),
+  };
+
+  function populateTemplates(){
+    elTemplateSel.innerHTML = templates.map(t => `<option value="${t.id}">${t.name}</option>`).join("");
+    elTemplateSel.value = templates[0].id;
+  }
+
+  function getActiveTemplate(){
+    return templates.find(t => t.id === elTemplateSel.value) || templates[0];
+  }
+
+  function applyTemplateStyle(tpl){
+    if (tpl.style && tpl.style.lightBg){
+      elPreview.style.background = "linear-gradient(135deg, #ffffff, #f3f4f6)";
+      elPreview.style.boxShadow = "0 16px 40px rgba(0,0,0,0.10)";
+    } else {
+      elPreview.style.background = "linear-gradient(135deg, #0b1220, #111827)";
+      elPreview.style.boxShadow = "0 16px 40px rgba(0,0,0,0.16)";
+    }
+  }
+
+  function renderPreview(){
+    const tpl = getActiveTemplate();
+    applyTemplateStyle(tpl);
+
+    elPreview.querySelectorAll(".field").forEach(n => n.remove());
+
+    const values = {
+      name: inputs.name.value || "",
+      title: inputs.title.value || "",
+      company: inputs.company.value || "",
+      phone: inputs.phone.value || "",
+      email: inputs.email.value || ""
     };
 
-    function showToast(msg){
-      toast.textContent = msg;
-      toast.classList.add("show");
-      setTimeout(()=>toast.classList.remove("show"), 1200);
-    }
+    Object.entries(tpl.fields).forEach(([key, spec]) => {
+      const div = document.createElement("div");
+      div.className = "field";
+      div.dataset.key = key;
+      div.textContent = values[key] ?? "";
 
-    function populateTemplates(){
-      elTemplateSel.innerHTML = templates.map(t => `<option value="${t.id}">${t.name}</option>`).join("");
-      elTemplateSel.value = templates[0].id;
-    }
+      // 흐릿함 방지: 정수로 스냅
+      div.style.left = Math.round(spec.x ?? 0) + "px";
+      div.style.top  = Math.round(spec.y ?? 0) + "px";
+      div.style.fontSize = Math.round(spec.fontSize ?? 18) + "px";
 
-    function getActiveTemplate(){
-      return templates.find(t => t.id === elTemplateSel.value) || templates[0];
-    }
+      div.style.fontWeight = (spec.fontWeight ?? 400);
+      div.style.opacity = (spec.opacity ?? 1);
+      div.style.letterSpacing = (spec.letterSpacing ?? 0) + "px";
+      div.style.textAlign = spec.align || "left";
+      if (spec.color) div.style.color = spec.color;
+      if (spec.textShadow) div.style.textShadow = spec.textShadow;
 
-    function applyTemplateStyle(tpl){
-      // 기본은 다크 그라데이션 + fallback before.
-      // 라이트 템플릿이면 #preview 자체 배경을 흰색 계열로 바꿔줌.
-      if (tpl.style && tpl.style.lightBg){
-        elPreview.style.background = "linear-gradient(135deg, #ffffff, #f3f4f6)";
-        elPreview.style.boxShadow = "0 16px 40px rgba(0,0,0,0.10)";
-      } else {
-        elPreview.style.background = "linear-gradient(135deg, #0b1220, #111827)";
-        elPreview.style.boxShadow = "0 16px 40px rgba(0,0,0,0.16)";
-      }
-    }
+      elPreview.appendChild(div);
+    });
+  }
 
-    function renderPreview(){
-      const tpl = getActiveTemplate();
-      applyTemplateStyle(tpl);
+  /***********************
+   * 2) 전송 (고정 이메일로 PDF 전송)
+   ***********************/
+  const btnSend = document.getElementById("btnSend");
 
-      // preview 안의 field 요소들만 싹 정리하고 다시 생성
-      elPreview.querySelectorAll(".field").forEach(n => n.remove());
+  async function makePdfBlobFromPreview() {
+    const canvas = await html2canvas(elPreview, { scale: 3, useCORS: true });
+    const imgData = canvas.toDataURL("image/png");
+    const { jsPDF } = window.jspdf;
 
-      const values = {
-        name: inputs.name.value || "",
-        title: inputs.title.value || "",
-        company: inputs.company.value || "",
-        phone: inputs.phone.value || "",
-        email: inputs.email.value || ""
-      };
-
-      Object.entries(tpl.fields).forEach(([key, spec]) => {
-        const div = document.createElement("div");
-        div.className = "field";
-        div.dataset.key = key;
-        div.textContent = values[key] ?? "";
-
-        // 좌표는 px 기준. (네가 이미 JSON 좌표 배치 구현했다면 이 부분만 네 방식에 맞춰도 OK)
-        div.style.left = (spec.x ?? 0) + "px";
-        div.style.top  = (spec.y ?? 0) + "px";
-        div.style.fontSize = (spec.fontSize ?? 18) + "px";
-        div.style.fontWeight = (spec.fontWeight ?? 400);
-        div.style.opacity = (spec.opacity ?? 1);
-        div.style.letterSpacing = (spec.letterSpacing ?? 0) + "px";
-        div.style.textAlign = spec.align || "left";
-        if (spec.color) div.style.color = spec.color;
-        if (spec.textShadow) div.style.textShadow = spec.textShadow;
-
-        elPreview.appendChild(div);
-      });
-    }
-
-    /***********************
-     * 2) 캡처 유틸
-     ***********************/
-    async function capturePreviewCanvas() {
-      // 고해상도 캡처: scale을 키우면 PNG/PDF 품질이 확 좋아짐
-      const scale = 3; // 너무 크면 느려질 수 있음 (2~4 추천)
-      const canvas = await html2canvas(elPreview, {
-        backgroundColor: null,  // 투명 유지 (preview 배경 포함 캡처는 DOM 스타일대로)
-        scale,
-        useCORS: true
-      });
-      return canvas;
-    }
-
-    function downloadDataUrl(dataUrl, filename){
-      const a = document.createElement("a");
-      a.href = dataUrl;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-    }
-
-    function yyyymmdd_hhmmss(){
-      const d = new Date();
-      const pad = n => String(n).padStart(2,"0");
-      return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
-    }
-
-    /***********************
-     * 3) email 전송
-     ***********************/
-   const btnSend = document.getElementById("btnSend");
-
-async function makePdfBlobFromPreview() {
-  const canvas = await html2canvas(document.querySelector("#preview"), {
-    scale: 3,
-    useCORS: true
-  });
-
-  const imgData = canvas.toDataURL("image/png");
-  const { jsPDF } = window.jspdf;
-
-  const pdf = new jsPDF({
-    orientation: "landscape",
-    unit: "mm",
-    format: [90, 50]
-  });
-
-  pdf.addImage(imgData, "PNG", 0, 0, 90, 50);
-  return pdf.output("blob"); // ⬅️ 다운로드 아님
-}
-
-btnSend.addEventListener("click", async () => {
-  btnSend.disabled = true;
-  alert("전송 중입니다…");
-
-  try {
-    const pdfBlob = await makePdfBlobFromPreview();
-
-    const formData = new FormData();
-    formData.append("pdf", pdfBlob, "business_card.pdf");
-
-    const res = await fetch("/api/save", {
-      method: "POST",
-      body: formData
+    const pdf = new jsPDF({
+      orientation: "landscape",
+      unit: "mm",
+      format: [90, 50]
     });
 
-    if (!res.ok) throw new Error("send failed");
-
-    alert("전송 완료! 담당자 이메일로 발송되었습니다.");
-  } catch (e) {
-    console.error(e);
-    alert("전송 실패. 잠시 후 다시 시도해주세요.");
-  } finally {
-    btnSend.disabled = false;
+    pdf.addImage(imgData, "PNG", 0, 0, 90, 50);
+    return pdf.output("blob");
   }
-});
 
+  btnSend.addEventListener("click", async () => {
+    btnSend.disabled = true;
+    try {
+      const pdfBlob = await makePdfBlobFromPreview();
+      const formData = new FormData();
+      formData.append("pdf", pdfBlob, "business_card.pdf");
 
-    /***********************
-     * 초기화
-     ***********************/
-    populateTemplates();
-    renderPreview();
+      const res = await fetch("/api/save", { method: "POST", body: formData });
+      if (!res.ok) throw new Error("send failed");
 
-    elTemplateSel.addEventListener("change", renderPreview);
-    Object.values(inputs).forEach(inp => inp.addEventListener("input", renderPreview));
-  </script>
+      alert("전송 완료! 담당자 이메일로 발송되었습니다.");
+    } catch (e) {
+      console.error(e);
+      alert("전송 실패. 서버 로그/환경변수를 확인해주세요.");
+    } finally {
+      btnSend.disabled = false;
+    }
+  });
+
+  /***********************
+   * 초기화
+   ***********************/
+  populateTemplates();
+  renderPreview();
+  elTemplateSel.addEventListener("change", renderPreview);
+  Object.values(inputs).forEach(inp => inp.addEventListener("input", renderPreview));
+</script>
+
 </body>
 </html>
