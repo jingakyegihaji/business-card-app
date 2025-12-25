@@ -1,52 +1,50 @@
 const express = require("express");
 const path = require("path");
 const multer = require("multer");
-const nodemailer = require("nodemailer");
 
 const app = express();
-const upload = multer({ storage: multer.memoryStorage() });
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 app.use(express.static(path.join(__dirname, "public")));
+app.get("/health", (_, res) => res.json({ ok: true }));
 
 app.post("/api/save", upload.single("pdf"), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ ok: false, error: "pdf missing" });
 
-    const required = ["SMTP_HOST","SMTP_PORT","SMTP_USER","SMTP_PASS","MAIL_FROM","ADMIN_EMAIL"];
+    const required = ["RESEND_API_KEY", "MAIL_FROM", "ADMIN_EMAIL"];
     const missing = required.filter(k => !process.env[k]);
     if (missing.length) {
       return res.status(500).json({ ok: false, error: "Missing env: " + missing.join(", ") });
     }
 
-    const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: 587,
-  secure: false,          // ✅ 587은 무조건 false
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS
-  },
-  requireTLS: true,       // ✅ STARTTLS 강제
-  tls: {
-    servername: "smtp.gmail.com"
-  },
-  connectionTimeout: 20000,
-  greetingTimeout: 20000,
-  socketTimeout: 20000
-});
+    const base64 = req.file.buffer.toString("base64");
 
-    await transporter.verify();
-    await transporter.sendMail({
-      from: process.env.MAIL_FROM,
-      to: process.env.ADMIN_EMAIL,
-      subject: "명함 저장 요청 (PDF)",
-      text: "브라우저에서 생성된 명함 PDF입니다.",
-      attachments: [{
-        filename: req.file.originalname || "business_card.pdf",
-        content: req.file.buffer,
-        contentType: "application/pdf"
-      }]
+    // Resend API 호출 (HTTPS)
+    const resp = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${process.env.RESEND_API_KEY}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        from: process.env.MAIL_FROM,         // 예: "Business Card <no-reply@yourdomain.com>"
+        to: [process.env.ADMIN_EMAIL],       // 고정 수신자
+        subject: "명함 저장 요청 (PDF)",
+        text: "브라우저에서 생성된 명함 PDF입니다.",
+        attachments: [
+          {
+            filename: req.file.originalname || "business_card.pdf",
+            content: base64
+          }
+        ]
+      })
     });
+
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok) {
+      return res.status(500).json({ ok: false, error: data?.message || "Resend API failed" });
+    }
 
     return res.json({ ok: true });
   } catch (e) {
@@ -55,6 +53,5 @@ app.post("/api/save", upload.single("pdf"), async (req, res) => {
   }
 });
 
-
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log("Server running"));
+app.listen(PORT, () => console.log("Server running on", PORT));
