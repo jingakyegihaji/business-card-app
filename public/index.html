@@ -10,34 +10,43 @@
     h1 { margin: 0 0 12px; }
     .grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 16px; }
     .card { background:#fff; border-radius: 12px; padding: 14px; box-shadow: 0 2px 10px rgba(0,0,0,.06); }
+
     .templates { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
     .tpl { border: 2px solid transparent; border-radius: 10px; padding: 8px; cursor: pointer; background:#fafafa; }
     .tpl.selected { border-color:#6d5efc; background:#f1efff; }
-    .tpl .img { height: 80px; border-radius: 8px; background: linear-gradient(135deg,#111,#555); }
+    .tpl .img { height: 80px; border-radius: 8px; background: #ddd; background-size: cover; background-position: center; }
+
     label { display:block; margin: 10px 0 6px; font-size: 13px; color:#333; }
     input { width: 100%; padding: 10px; border-radius: 10px; border: 1px solid #ddd; }
-    .preview .preview {
-  width: 100%;
-  aspect-ratio: 90 / 50;   /* ⭐ 명함 비율 고정 */
-  border-radius: 12px;
-  background: #111;
-  color: #fff;
-  position: relative;
-  overflow: hidden;
-  box-shadow: 0 6px 18px rgba(0,0,0,.12);
-}
 
-   .p-text{position:absolute;left:18px;bottom:16px;right:18px;padding:10px 12px;border-radius:10px;background: rgba(0,0,0,.35);backdrop-filter: blur(2px);}
+    .preview{
+      width:100%;
+      aspect-ratio: 90 / 50;     /* 명함 비율 */
+      border-radius:12px;
+      background:#111;
+      position:relative;
+      overflow:hidden;
+      box-shadow:0 6px 18px rgba(0,0,0,.12);
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+    }
 
-    .p-name { font-size: 18px; font-weight: 700; }
-    .p-role { font-size: 13px; opacity:.85; margin-top: 4px; }
-    .p-line { font-size: 12px; opacity:.8; margin-top: 6px; line-height: 1.5; }
-    .hint { font-size: 12px; color:#666; margin-top: 6px; }
+    .field{
+      position:absolute;
+      transform: translate(0, -50%);
+      white-space: nowrap;
+      color:#fff;
+      text-shadow: 0 2px 6px rgba(0,0,0,.35);
+    }
+
+    .hint { font-size: 12px; color:#666; margin-top: 8px; line-height: 1.4; }
   </style>
 </head>
 <body>
   <div class="wrap">
     <h1>명함 주문 MVP</h1>
+
     <div class="grid">
       <div class="card">
         <h3 style="margin:0 0 10px;">1) 템플릿 선택</h3>
@@ -49,87 +58,137 @@
         <label>전화</label><input id="phone" placeholder="010-1234-5678" />
         <label>이메일</label><input id="email" placeholder="test@company.com" />
 
-        <div class="hint">지금은 “화면만” 만드는 1단계야. 다음 단계에서 템플릿 이미지/좌표/폰트 적용 들어간다 😄</div>
+        <div class="hint">
+          지금은 “JSON 좌표형”으로 텍스트를 배치하는 단계야.<br/>
+          다음 단계에서 회사별 필드/폰트/백오피스까지 확장 가능 😄
+        </div>
       </div>
 
       <div class="card">
         <h3 style="margin:0 0 10px;">미리보기</h3>
         <div class="preview" id="preview">
-          <div class="p-text">
-            <div class="p-name" id="pName">홍길동</div>
-            <div class="p-role" id="pRole">Sales Manager</div>
-            <div class="p-line" id="pLine">010-1234-5678<br/>test@company.com</div>
-          </div>
+          <div class="field" id="f_name">홍길동</div>
+          <div class="field" id="f_role">Sales Manager</div>
+          <div class="field" id="f_phone">010-1234-5678</div>
+          <div class="field" id="f_email">test@company.com</div>
         </div>
-        <div class="hint">템플릿 선택/입력값이 즉시 반영되면 성공.</div>
+        <div class="hint">
+          템플릿 선택/입력값 변경이 즉시 반영되면 성공.
+        </div>
       </div>
     </div>
   </div>
 
   <script>
-   const tplData = [
-  { id: "tpl1", name: "Template 1", img: "/templates/tpl1.png" },
-  { id: "tpl2", name: "Template 2", img: "/templates/tpl2.png" },
-  { id: "tpl3", name: "Template 3", img: "/templates/tpl3.png" }
-];
+    // 1) 템플릿 이미지 목록(썸네일/배경에 공통 사용)
+    const tplData = [
+      { id: "tpl1", name: "Template 1", img: "/templates/tpl1.png" },
+      { id: "tpl2", name: "Template 2", img: "/templates/tpl2.png" },
+      { id: "tpl3", name: "Template 3", img: "/templates/tpl3.png" }
+    ];
 
+    // 2) JSON 좌표 템플릿 설정(일단 tpl1만 예시로; tpl2/tpl3는 복붙해서 좌표만 바꾸면 됨)
+    const templateConfig = {
+      templates: [
+        {
+          id: "tpl1",
+          background: "/templates/tpl1.png",
+          fields: {
+            name:  { xPct: 8,  yPct: 68, fontSize: 18, fontWeight: 700, color: "#ffffff" },
+            role:  { xPct: 8,  yPct: 80, fontSize: 12, fontWeight: 400, color: "#ffffff" },
+            phone: { xPct: 8,  yPct: 92, fontSize: 11, fontWeight: 400, color: "#ffffff" },
+            email: { xPct: 92, yPct: 92, fontSize: 11, fontWeight: 400, color: "#ffffff", align: "right" }
+          }
+        },
+        {
+          id: "tpl2",
+          background: "/templates/tpl2.png",
+          fields: {
+            name:  { xPct: 10, yPct: 30, fontSize: 18, fontWeight: 700, color: "#ffffff" },
+            role:  { xPct: 10, yPct: 42, fontSize: 12, fontWeight: 400, color: "#ffffff" },
+            phone: { xPct: 10, yPct: 80, fontSize: 11, fontWeight: 400, color: "#ffffff" },
+            email: { xPct: 10, yPct: 90, fontSize: 11, fontWeight: 400, color: "#ffffff" }
+          }
+        },
+        {
+          id: "tpl3",
+          background: "/templates/tpl3.png",
+          fields: {
+            name:  { xPct: 60, yPct: 30, fontSize: 18, fontWeight: 700, color: "#ffffff", align: "right" },
+            role:  { xPct: 60, yPct: 42, fontSize: 12, fontWeight: 400, color: "#ffffff", align: "right" },
+            phone: { xPct: 60, yPct: 80, fontSize: 11, fontWeight: 400, color: "#ffffff", align: "right" },
+            email: { xPct: 60, yPct: 90, fontSize: 11, fontWeight: 400, color: "#ffffff", align: "right" }
+          }
+        }
+      ]
+    };
 
     const templatesEl = document.getElementById("templates");
     const previewEl = document.getElementById("preview");
-
     let selected = "tpl1";
 
-    function renderTemplates() {
+    function applyTemplate(templateId){
+      const t = templateConfig.templates.find(x => x.id === templateId);
+      if(!t) return;
+
+      // 배경
+      previewEl.style.backgroundImage = `url(${t.background})`;
+
+      // 필드
+      const map = { name:"f_name", role:"f_role", phone:"f_phone", email:"f_email" };
+      Object.entries(t.fields).forEach(([key, cfg]) => {
+        const el = document.getElementById(map[key]);
+        if(!el) return;
+
+        el.style.left = (cfg.xPct ?? 0) + "%";
+        el.style.top  = (cfg.yPct ?? 0) + "%";
+        el.style.fontSize = (cfg.fontSize ?? 12) + "px";
+        el.style.fontWeight = (cfg.fontWeight ?? 400);
+        el.style.color = (cfg.color ?? "#fff");
+
+        if(cfg.align === "right"){
+          el.style.transform = "translate(-100%, -50%)";
+          el.style.textAlign = "right";
+        } else {
+          el.style.transform = "translate(0, -50%)";
+          el.style.textAlign = "left";
+        }
+      });
+    }
+
+    function renderTemplates(){
       templatesEl.innerHTML = "";
       tplData.forEach(t => {
         const div = document.createElement("div");
         div.className = "tpl" + (t.id === selected ? " selected" : "");
-       div.innerHTML = `
-  <div class="img" style="background-image:url(${t.img}); background-size:cover; background-position:center;"></div>
-  <div style="margin-top:6px;font-size:12px;">${t.name}</div>
-`;
-
+        div.innerHTML = `
+          <div class="img" style="background-image:url(${t.img});"></div>
+          <div style="margin-top:6px;font-size:12px;">${t.name}</div>
+        `;
         div.onclick = () => {
           selected = t.id;
-    const cur = tplData.find(x => x.id === selected);
-previewEl.style.backgroundImage = `url(${cur.img})`;
-previewEl.style.backgroundSize = "cover";
-previewEl.style.backgroundPosition = "center";
-previewEl.style.backgroundRepeat = "no-repeat";
-
+          applyTemplate(selected);
           renderTemplates();
         };
         templatesEl.appendChild(div);
       });
-      const cur = tplData.find(x => x.id === selected);
-      previewEl.style.background = cur.bg;
     }
 
-    function bindInput(id, targetId, formatter) {
+    function setText(id, fallback, value){
       const el = document.getElementById(id);
-      const t = document.getElementById(targetId);
-      el.addEventListener("input", () => {
-        t.innerHTML = formatter ? formatter(el.value) : (el.value || t.dataset.fallback || "");
-      });
+      if(!el) return;
+      el.textContent = value || fallback;
     }
 
-    document.getElementById("pName").dataset.fallback = "홍길동";
-    document.getElementById("pRole").dataset.fallback = "Sales Manager";
-    document.getElementById("pLine").dataset.fallback = "010-1234-5678<br/>test@company.com";
+    // 입력 이벤트
+    document.getElementById("name").addEventListener("input", e => setText("f_name","홍길동", e.target.value));
+    document.getElementById("role").addEventListener("input", e => setText("f_role","Sales Manager", e.target.value));
+    document.getElementById("phone").addEventListener("input", e => setText("f_phone","010-1234-5678", e.target.value));
+    document.getElementById("email").addEventListener("input", e => setText("f_email","test@company.com", e.target.value));
 
-    bindInput("name", "pName", v => v || "홍길동");
-    bindInput("role", "pRole", v => v || "Sales Manager");
-    const phoneEl = document.getElementById("phone");
-    const emailEl = document.getElementById("email");
-    function updateLine() {
-      const phone = phoneEl.value || "010-1234-5678";
-      const email = emailEl.value || "test@company.com";
-      document.getElementById("pLine").innerHTML = `${phone}<br/>${email}`;
-    }
-    phoneEl.addEventListener("input", updateLine);
-    emailEl.addEventListener("input", updateLine);
-
+    // 초기 렌더
     renderTemplates();
+    applyTemplate(selected);
   </script>
 </body>
 </html>
