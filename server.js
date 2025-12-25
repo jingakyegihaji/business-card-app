@@ -17,6 +17,44 @@ app.post("/api/save", upload.single("pdf"), async (req, res) => {
     if (missing.length) {
       return res.status(500).json({ ok: false, error: "Missing env: " + missing.join(", ") });
     }
+app.get("/api/test-email", async (req, res) => {
+  try {
+    const required = ["RESEND_API_KEY", "MAIL_FROM", "ADMIN_EMAIL"];
+    const missing = required.filter(k => !process.env[k]);
+    if (missing.length) {
+      return res.status(500).json({
+        ok: false,
+        error: "Missing env: " + missing.join(", ")
+      });
+    }
+
+    const resp = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${process.env.RESEND_API_KEY}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        from: process.env.MAIL_FROM,
+        to: [process.env.ADMIN_EMAIL],
+        subject: "Resend 테스트 메일",
+        text: "이 메일이 오면 Resend API 연동은 정상입니다."
+      })
+    });
+
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok) {
+      return res.status(500).json({
+        ok: false,
+        error: data?.message || JSON.stringify(data)
+      });
+    }
+
+    res.json({ ok: true, data });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
 
     const base64 = req.file.buffer.toString("base64");
 
