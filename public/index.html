@@ -5,196 +5,484 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Business Card App (MVP)</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 0; background:#f6f7fb; }
-    .wrap { max-width: 1100px; margin: 24px auto; padding: 16px; }
-    h1 { margin: 0 0 12px; }
-    .grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 16px; align-items: start; }
-    .card { background:#fff; border-radius: 12px; padding: 14px; box-shadow: 0 2px 10px rgba(0,0,0,.06); }
+    :root{
+      --bg:#f6f7fb;
+      --card:#ffffff;
+      --text:#111827;
+      --muted:#6b7280;
+      --line:#e5e7eb;
+      --accent:#2563eb;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family: Arial, "맑은 고딕", sans-serif;
+      background:var(--bg);
+      color:var(--text);
+    }
+    .wrap{
+      max-width: 1200px;
+      margin: 18px auto;
+      padding: 18px;
+    }
+    header{
+      display:flex;
+      align-items:flex-end;
+      justify-content:space-between;
+      gap:12px;
+      margin-bottom:14px;
+    }
+    h1{
+      font-size:18px;
+      margin:0;
+      letter-spacing:-0.2px;
+    }
+    .sub{
+      margin:6px 0 0;
+      color:var(--muted);
+      font-size:12px;
+    }
 
-    .templates { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-    .tpl { border: 2px solid transparent; border-radius: 10px; padding: 8px; cursor: pointer; background:#fafafa; }
-    .tpl.selected { border-color:#6d5efc; background:#f1efff; }
-    .tpl .img { height: 80px; border-radius: 8px; background: #e7e7e7; display:flex; align-items:center; justify-content:center; font-size:12px; color:#666; }
+    .grid{
+      display:grid;
+      grid-template-columns: 420px 1fr;
+      gap:16px;
+    }
 
-    label { display:block; margin: 10px 0 6px; font-size: 13px; color:#333; }
-    input { width: 100%; padding: 10px; border-radius: 10px; border: 1px solid #ddd; }
+    .panel{
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:14px;
+      padding:14px;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.06);
+    }
+    .panel h2{
+      margin:0 0 10px;
+      font-size:14px;
+    }
 
-    .preview{
-      width: 100%;
+    .row{display:flex; gap:10px; align-items:center; margin:10px 0;}
+    label{font-size:12px; color:var(--muted); width:110px;}
+    select,input{
+      width:100%;
+      border:1px solid var(--line);
+      border-radius:10px;
+      padding:10px 10px;
+      outline:none;
+      background:#fff;
+      font-size:13px;
+    }
+    input:focus, select:focus{border-color:#bcd3ff; box-shadow:0 0 0 3px rgba(37,99,235,0.12)}
+
+    .btns{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:10px;
+    }
+    button{
+      border:1px solid var(--line);
+      background:#fff;
+      padding:10px 12px;
+      border-radius:12px;
+      cursor:pointer;
+      font-size:13px;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+    }
+    button.primary{
+      background:var(--accent);
+      border-color:var(--accent);
+      color:#fff;
+    }
+    button:active{transform:translateY(1px)}
+    button:disabled{
+      opacity:0.55;
+      cursor:not-allowed;
+    }
+
+    .hint{
+      margin-top:10px;
+      font-size:12px;
+      color:var(--muted);
+      line-height:1.4;
+    }
+
+    /* Preview */
+    .previewWrap{
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+    }
+
+    .previewHeader{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+    }
+    .badge{
+      font-size:12px;
+      color:var(--muted);
+    }
+
+    /* 명함 실제 비율: 90x50mm => 1.8:1 */
+    #preview{
+      width: 720px;              /* 화면용 크기 (캡처 시 scale로 고해상도 확보) */
       aspect-ratio: 90 / 50;
-      min-height: 220px;
-      border-radius: 12px;
-      position: relative;
-      overflow: hidden;
-      box-shadow: 0 6px 18px rgba(0,0,0,.12);
-      border: 1px solid rgba(0,0,0,.08);
-      background: #111;
-      background-size: cover;
-      background-position: center;
-      background-repeat: no-repeat;
+      border-radius:18px;
+      border:1px solid var(--line);
+      background: linear-gradient(135deg, #0b1220, #111827);
+      position:relative;
+      overflow:hidden;
+      box-shadow: 0 16px 40px rgba(0,0,0,0.16);
+    }
+    /* fallback 배경 (이미지 없을 때) */
+    #preview::before{
+      content:"";
+      position:absolute; inset:-40px;
+      background:
+        radial-gradient(circle at 20% 30%, rgba(37,99,235,0.55), transparent 45%),
+        radial-gradient(circle at 70% 60%, rgba(16,185,129,0.38), transparent 46%),
+        radial-gradient(circle at 40% 80%, rgba(249,115,22,0.28), transparent 50%);
+      filter: blur(2px);
+      opacity:0.9;
+      pointer-events:none;
     }
 
     .field{
       position:absolute;
-      transform: translate(0, -50%);
-      white-space: nowrap;
+      white-space:pre;
+      transform-origin: left top;
       color:#fff;
-      text-shadow: 0 2px 6px rgba(0,0,0,.35);
-      user-select: none;
+      text-shadow: 0 2px 10px rgba(0,0,0,0.25);
+      user-select:none;
     }
 
-    .btns { display:flex; gap:10px; margin-top:12px; flex-wrap:wrap; }
-    button{
-      border:0; cursor:pointer;
-      padding:10px 12px; border-radius:10px;
-      background:#111; color:#fff; font-weight:600;
+    /* 캡처할 때 버튼/가이드가 섞이지 않게: preview 안에는 출력 요소만 두기 */
+    .cornerMark{
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      opacity:0.16;
+      background:
+        linear-gradient(#fff,#fff) left 16px top 16px / 24px 2px no-repeat,
+        linear-gradient(#fff,#fff) left 16px top 16px / 2px 24px no-repeat,
+
+        linear-gradient(#fff,#fff) right 16px top 16px / 24px 2px no-repeat,
+        linear-gradient(#fff,#fff) right 16px top 16px / 2px 24px no-repeat,
+
+        linear-gradient(#fff,#fff) left 16px bottom 16px / 24px 2px no-repeat,
+        linear-gradient(#fff,#fff) left 16px bottom 16px / 2px 24px no-repeat,
+
+        linear-gradient(#fff,#fff) right 16px bottom 16px / 24px 2px no-repeat,
+        linear-gradient(#fff,#fff) right 16px bottom 16px / 2px 24px no-repeat;
     }
-    button.secondary{ background:#6d5efc; }
-    button.ghost{ background:#fff; color:#111; border:1px solid #ddd; }
-    .hint { font-size: 12px; color:#666; margin-top: 8px; line-height: 1.4; }
-    .small { font-size: 12px; color:#555; margin-top: 8px; }
-    .status { font-size: 12px; color:#333; margin-top: 8px; }
+
+    .toast{
+      position:fixed;
+      left:50%;
+      bottom:18px;
+      transform:translateX(-50%);
+      background:#111827;
+      color:#fff;
+      padding:10px 12px;
+      border-radius:999px;
+      font-size:12px;
+      box-shadow:0 12px 30px rgba(0,0,0,0.25);
+      opacity:0;
+      pointer-events:none;
+      transition:opacity .2s ease;
+    }
+    .toast.show{opacity:1;}
+    @media (max-width: 980px){
+      .grid{grid-template-columns:1fr}
+      #preview{width:100%}
+      label{width:95px}
+    }
   </style>
+
+  <!-- 캡처 라이브러리 -->
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <!-- PDF 라이브러리 -->
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 </head>
+
 <body>
   <div class="wrap">
-    <h1>명함 주문 MVP</h1>
+    <header>
+      <div>
+        <h1>명함 주문 MVP</h1>
+        <p class="sub">템플릿 → JSON 좌표 배치 → 입력 즉시 반영 → 이제 “캡처 저장” 붙이기 ✨</p>
+      </div>
+      <div class="badge">Client-side capture (no server render)</div>
+    </header>
 
     <div class="grid">
-      <div class="card">
-        <h3 style="margin:0 0 10px;">1) 템플릿 선택</h3>
-        <div class="templates" id="templates"></div>
+      <!-- Left: Controls -->
+      <section class="panel">
+        <h2>설정</h2>
 
-        <h3 style="margin:16px 0 10px;">2) 정보 입력</h3>
-        <label>이름</label><input id="name" placeholder="홍길동" />
-        <label>직함</label><input id="role" placeholder="Sales Manager" />
-        <label>전화</label><input id="phone" placeholder="010-1234-5678" />
-        <label>이메일</label><input id="email" placeholder="test@company.com" />
-
-        <div class="hint">
-          ✅ 지금은 디자이너 확인용: 화면 캡처 → 90x50mm PDF 생성
+        <div class="row">
+          <label for="templateSel">템플릿</label>
+          <select id="templateSel"></select>
         </div>
-      </div>
 
-      <div class="card">
-        <h3 style="margin:0 0 10px;">미리보기</h3>
+        <div class="row">
+          <label for="nameInput">이름</label>
+          <input id="nameInput" placeholder="홍길동" value="홍길동"/>
+        </div>
 
-        <div class="preview" id="preview">
-          <div class="field" id="f_name">홍길동</div>
-          <div class="field" id="f_role">Sales Manager</div>
-          <div class="field" id="f_phone">010-1234-5678</div>
-          <div class="field" id="f_email">test@company.com</div>
+        <div class="row">
+          <label for="titleInput">직함</label>
+          <input id="titleInput" placeholder="Sales Manager" value="Sales Manager"/>
+        </div>
+
+        <div class="row">
+          <label for="companyInput">회사</label>
+          <input id="companyInput" placeholder="ACME Inc." value="ACME Inc."/>
+        </div>
+
+        <div class="row">
+          <label for="phoneInput">전화</label>
+          <input id="phoneInput" placeholder="+82 10-1234-5678" value="+82 10-1234-5678"/>
+        </div>
+
+        <div class="row">
+          <label for="emailInput">이메일</label>
+          <input id="emailInput" placeholder="hello@example.com" value="hello@example.com"/>
         </div>
 
         <div class="btns">
-          <button class="ghost" id="btnPng">PNG로 저장</button>
-          <button class="secondary" id="btnPdf">PDF(90x50mm)로 저장</button>
+          <button class="primary" id="btnPng">⬇️ PNG 저장</button>
+          <button id="btnPdf">📄 PDF 저장 (90×50mm)</button>
         </div>
-        <div class="status" id="status"></div>
 
-        <div class="small">
-          * 템플릿 이미지가 없어도 테스트 가능(지금은 그라데이션 배경)
+        <div class="hint">
+          - PNG는 화면에 보이는 미리보기를 그대로 저장합니다.<br/>
+          - PDF는 <b>90×50mm</b>로 저장되며, 프린트/디자이너 확인용으로 딱 좋아요.<br/>
+          - 이미지 업로드가 없어도 fallback 배경으로 동작합니다.
         </div>
-      </div>
+      </section>
+
+      <!-- Right: Preview -->
+      <section class="previewWrap">
+        <div class="previewHeader">
+          <div class="badge">Preview (#preview)</div>
+          <div class="badge" id="sizeInfo">90×50mm</div>
+        </div>
+
+        <div id="preview" aria-label="business card preview">
+          <div class="cornerMark" aria-hidden="true"></div>
+          <!-- fields injected here -->
+        </div>
+      </section>
     </div>
   </div>
 
-  <!-- 캡처/PDF 라이브러리 (CDN) -->
-  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <div class="toast" id="toast"></div>
 
   <script>
-    // 템플릿 (이미지 없으면 fallbackBg로 구분)
-    const tplData = [
-      { id: "tpl1", name: "Template 1" },
-      { id: "tpl2", name: "Template 2" },
-      { id: "tpl3", name: "Template 3" }
+    /***********************
+     * 1) 템플릿 & 렌더
+     ***********************/
+    const templates = [
+      {
+        id: "classic_dark",
+        name: "Classic Dark",
+        style: {
+          // 필요하면 여기서 preview 배경을 템플릿별로 바꿀 수도 있음
+        },
+        fields: {
+          name:   { x: 48,  y: 150, fontSize: 44, fontWeight: 700, letterSpacing: 0.2, align:"left" },
+          title:  { x: 50,  y: 208, fontSize: 22, fontWeight: 400, opacity: 0.9, align:"left" },
+          company:{ x: 50,  y: 76,  fontSize: 26, fontWeight: 600, opacity: 0.95, align:"left" },
+          phone:  { x: 50,  y: 300, fontSize: 20, fontWeight: 400, opacity: 0.9, align:"left" },
+          email:  { x: 50,  y: 330, fontSize: 20, fontWeight: 400, opacity: 0.9, align:"left" },
+        }
+      },
+      {
+        id: "minimal_light",
+        name: "Minimal Light",
+        style: {
+          lightBg: true
+        },
+        fields: {
+          name:   { x: 56,  y: 170, fontSize: 44, fontWeight: 700, color:"#111827", textShadow:"none", align:"left" },
+          title:  { x: 58,  y: 228, fontSize: 22, fontWeight: 400, color:"#374151", textShadow:"none", align:"left" },
+          company:{ x: 58,  y: 88,  fontSize: 26, fontWeight: 600, color:"#111827", textShadow:"none", align:"left" },
+          phone:  { x: 58,  y: 304, fontSize: 20, fontWeight: 400, color:"#374151", textShadow:"none", align:"left" },
+          email:  { x: 58,  y: 334, fontSize: 20, fontWeight: 400, color:"#374151", textShadow:"none", align:"left" },
+        }
+      }
     ];
 
-    // JSON 좌표(예시)
-    const templateConfig = {
-      templates: [
-        {
-          id: "tpl1",
-          fallbackBg: "linear-gradient(135deg,#111,#666)",
-          fields: {
-            name:  { xPct: 8,  yPct: 70, fontSize: 20, fontWeight: 700 },
-            role:  { xPct: 8,  yPct: 82, fontSize: 12, fontWeight: 400 },
-            phone: { xPct: 8,  yPct: 92, fontSize: 11, fontWeight: 400 },
-            email: { xPct: 92, yPct: 92, fontSize: 11, fontWeight: 400, align: "right" }
-          }
-        },
-        {
-          id: "tpl2",
-          fallbackBg: "linear-gradient(135deg,#0b1b3a,#244a8f)",
-          fields: {
-            name:  { xPct: 10, yPct: 32, fontSize: 20, fontWeight: 700 },
-            role:  { xPct: 10, yPct: 44, fontSize: 12, fontWeight: 400 },
-            phone: { xPct: 10, yPct: 82, fontSize: 11, fontWeight: 400 },
-            email: { xPct: 10, yPct: 92, fontSize: 11, fontWeight: 400 }
-          }
-        },
-        {
-          id: "tpl3",
-          fallbackBg: "linear-gradient(135deg,#1b3a0b,#6aa84f)",
-          fields: {
-            name:  { xPct: 92, yPct: 32, fontSize: 20, fontWeight: 700, align: "right" },
-            role:  { xPct: 92, yPct: 44, fontSize: 12, fontWeight: 400, align: "right" },
-            phone: { xPct: 92, yPct: 82, fontSize: 11, fontWeight: 400, align: "right" },
-            email: { xPct: 92, yPct: 92, fontSize: 11, fontWeight: 400, align: "right" }
-          }
-        }
-      ]
+    const elTemplateSel = document.getElementById("templateSel");
+    const elPreview = document.getElementById("preview");
+    const toast = document.getElementById("toast");
+
+    const inputs = {
+      name: document.getElementById("nameInput"),
+      title: document.getElementById("titleInput"),
+      company: document.getElementById("companyInput"),
+      phone: document.getElementById("phoneInput"),
+      email: document.getElementById("emailInput"),
     };
 
-    const templatesEl = document.getElementById("templates");
-    const previewEl = document.getElementById("preview");
-    const statusEl = document.getElementById("status");
-    let selected = "tpl1";
-
-    function applyTemplate(templateId){
-      const t = templateConfig.templates.find(x => x.id === templateId);
-      if(!t) return;
-
-      // 이미지 없으니 fallback 배경
-      previewEl.style.backgroundImage = "none";
-      previewEl.style.background = t.fallbackBg || "#111";
-
-      const map = { name:"f_name", role:"f_role", phone:"f_phone", email:"f_email" };
-      Object.entries(t.fields).forEach(([key, cfg]) => {
-        const el = document.getElementById(map[key]);
-        if(!el) return;
-
-        el.style.left = (cfg.xPct ?? 0) + "%";
-        el.style.top  = (cfg.yPct ?? 0) + "%";
-        el.style.fontSize = (cfg.fontSize ?? 12) + "px";
-        el.style.fontWeight = (cfg.fontWeight ?? 400);
-        el.style.color = (cfg.color ?? "#fff");
-
-        if(cfg.align === "right"){
-          el.style.transform = "translate(-100%, -50%)";
-          el.style.textAlign = "right";
-        } else {
-          el.style.transform = "translate(0, -50%)";
-          el.style.textAlign = "left";
-        }
-      });
+    function showToast(msg){
+      toast.textContent = msg;
+      toast.classList.add("show");
+      setTimeout(()=>toast.classList.remove("show"), 1200);
     }
 
-    function renderTemplates(){
-      templatesEl.innerHTML = "";
-      tplData.forEach(t => {
+    function populateTemplates(){
+      elTemplateSel.innerHTML = templates.map(t => `<option value="${t.id}">${t.name}</option>`).join("");
+      elTemplateSel.value = templates[0].id;
+    }
+
+    function getActiveTemplate(){
+      return templates.find(t => t.id === elTemplateSel.value) || templates[0];
+    }
+
+    function applyTemplateStyle(tpl){
+      // 기본은 다크 그라데이션 + fallback before.
+      // 라이트 템플릿이면 #preview 자체 배경을 흰색 계열로 바꿔줌.
+      if (tpl.style && tpl.style.lightBg){
+        elPreview.style.background = "linear-gradient(135deg, #ffffff, #f3f4f6)";
+        elPreview.style.boxShadow = "0 16px 40px rgba(0,0,0,0.10)";
+      } else {
+        elPreview.style.background = "linear-gradient(135deg, #0b1220, #111827)";
+        elPreview.style.boxShadow = "0 16px 40px rgba(0,0,0,0.16)";
+      }
+    }
+
+    function renderPreview(){
+      const tpl = getActiveTemplate();
+      applyTemplateStyle(tpl);
+
+      // preview 안의 field 요소들만 싹 정리하고 다시 생성
+      elPreview.querySelectorAll(".field").forEach(n => n.remove());
+
+      const values = {
+        name: inputs.name.value || "",
+        title: inputs.title.value || "",
+        company: inputs.company.value || "",
+        phone: inputs.phone.value || "",
+        email: inputs.email.value || ""
+      };
+
+      Object.entries(tpl.fields).forEach(([key, spec]) => {
         const div = document.createElement("div");
-        div.className = "tpl" + (t.id === selected ? " selected" : "");
-        div.innerHTML = `<div class="img">${t.name}</div>`;
-        div.onclick = () => {
-          selected = t.id;
-          applyTemplate(selected);
-          renderTemplates();
-        };
-        templatesEl.appendChild(div);
+        div.className = "field";
+        div.dataset.key = key;
+        div.textContent = values[key] ?? "";
+
+        // 좌표는 px 기준. (네가 이미 JSON 좌표 배치 구현했다면 이 부분만 네 방식에 맞춰도 OK)
+        div.style.left = (spec.x ?? 0) + "px";
+        div.style.top  = (spec.y ?? 0) + "px";
+        div.style.fontSize = (spec.fontSize ?? 18) + "px";
+        div.style.fontWeight = (spec.fontWeight ?? 400);
+        div.style.opacity = (spec.opacity ?? 1);
+        div.style.letterSpacing = (spec.letterSpacing ?? 0) + "px";
+        div.style.textAlign = spec.align || "left";
+        if (spec.color) div.style.color = spec.color;
+        if (spec.textShadow) div.style.textShadow = spec.textShadow;
+
+        elPreview.appendChild(div);
       });
     }
 
-    function setText(id, fallback, value){
-      const el = document.getElementById(id
+    /***********************
+     * 2) 캡처 유틸
+     ***********************/
+    async function capturePreviewCanvas() {
+      // 고해상도 캡처: scale을 키우면 PNG/PDF 품질이 확 좋아짐
+      const scale = 3; // 너무 크면 느려질 수 있음 (2~4 추천)
+      const canvas = await html2canvas(elPreview, {
+        backgroundColor: null,  // 투명 유지 (preview 배경 포함 캡처는 DOM 스타일대로)
+        scale,
+        useCORS: true
+      });
+      return canvas;
+    }
+
+    function downloadDataUrl(dataUrl, filename){
+      const a = document.createElement("a");
+      a.href = dataUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+
+    function yyyymmdd_hhmmss(){
+      const d = new Date();
+      const pad = n => String(n).padStart(2,"0");
+      return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+    }
+
+    /***********************
+     * 3) PNG 저장
+     ***********************/
+    const btnPng = document.getElementById("btnPng");
+    btnPng.addEventListener("click", async () => {
+      try{
+        btnPng.disabled = true;
+        showToast("PNG 캡처 중…");
+        const canvas = await capturePreviewCanvas();
+        const dataUrl = canvas.toDataURL("image/png");
+        downloadDataUrl(dataUrl, `business_card_${elTemplateSel.value}_${yyyymmdd_hhmmss()}.png`);
+        showToast("PNG 저장 완료!");
+      } catch(e){
+        console.error(e);
+        alert("PNG 저장 중 오류가 발생했습니다. 콘솔 로그를 확인해주세요.");
+      } finally {
+        btnPng.disabled = false;
+      }
+    });
+
+    /***********************
+     * 4) PDF 저장 (90x50mm)
+     ***********************/
+    const btnPdf = document.getElementById("btnPdf");
+    btnPdf.addEventListener("click", async () => {
+      try{
+        btnPdf.disabled = true;
+        showToast("PDF 생성 중…");
+
+        const canvas = await capturePreviewCanvas();
+        const imgData = canvas.toDataURL("image/png");
+
+        // jsPDF: 커스텀 사이즈(단위 mm)로 90x50mm
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF({
+          orientation: "landscape",
+          unit: "mm",
+          format: [90, 50]
+        });
+
+        // 페이지를 꽉 채우기: 90x50mm에 이미지 맞춰 넣기
+        pdf.addImage(imgData, "PNG", 0, 0, 90, 50, undefined, "FAST");
+        pdf.save(`business_card_${elTemplateSel.value}_${yyyymmdd_hhmmss()}.pdf`);
+
+        showToast("PDF 저장 완료!");
+      } catch(e){
+        console.error(e);
+        alert("PDF 저장 중 오류가 발생했습니다. 콘솔 로그를 확인해주세요.");
+      } finally {
+        btnPdf.disabled = false;
+      }
+    });
+
+    /***********************
+     * 초기화
+     ***********************/
+    populateTemplates();
+    renderPreview();
+
+    elTemplateSel.addEventListener("change", renderPreview);
+    Object.values(inputs).forEach(inp => inp.addEventListener("input", renderPreview));
+  </script>
+</body>
+</html>
