@@ -35,7 +35,7 @@ app.post("/api/save", upload.single("pdf"), async (req, res) => {
   socketTimeout: 20000
 });
 
-
+    await transporter.verify();
     await transporter.sendMail({
       from: process.env.MAIL_FROM,
       to: process.env.ADMIN_EMAIL,
