@@ -2,76 +2,264 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>Back Office</title>
 <style>
-body{font-family:sans-serif;padding:20px}
-input,button{margin:4px}
-.box{border:1px solid #ddd;padding:10px;margin-bottom:20px}
-.field{cursor:pointer}
-canvas{border:1px solid #ccc}
+  body{font-family:Arial,"맑은 고딕",sans-serif;padding:20px;background:#f6f7fb;color:#111827}
+  .card{background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:14px;margin-bottom:14px;box-shadow:0 6px 18px rgba(0,0,0,0.06)}
+  input,button{padding:10px;border-radius:10px;border:1px solid #e5e7eb;font-size:14px}
+  button{cursor:pointer}
+  button.primary{background:#2563eb;color:#fff;border-color:#2563eb}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .muted{color:#6b7280;font-size:12px;line-height:1.4}
+  .danger{color:#b91c1c}
+  ul{padding-left:18px}
+  canvas{border:1px solid #e5e7eb;border-radius:12px;background:#fff;max-width:100%;height:auto}
+  .hidden{display:none}
 </style>
 </head>
 <body>
 
-<h2>템플릿 관리</h2>
-<div class="box">
-  <button onclick="createTemplate()">+ 템플릿 추가</button>
-  <ul id="tplList"></ul>
+<h2>Back Office</h2>
+
+<!-- 로그인 카드 -->
+<div id="loginCard" class="card">
+  <h3 style="margin:0 0 10px;">관리자 로그인</h3>
+  <div class="row">
+    <input id="pw" type="password" placeholder="Admin Password" style="min-width:260px;">
+    <button class="primary" onclick="login()">로그인</button>
+  </div>
+  <p class="muted">
+    - Render 환경변수 <b>ADMIN_PASSWORD</b>로 비밀번호를 설정하세요.<br/>
+    - 로그인 토큰은 브라우저에 저장되고, 서버 재시작 시 만료됩니다.
+  </p>
+  <div id="loginErr" class="muted danger"></div>
 </div>
 
-<div class="box">
-  <h3 id="tplTitle"></h3>
-  <input type="file" onchange="uploadBg(this)">
-  <br/>
-  <canvas id="canvas" width="720" height="400"></canvas>
+<!-- 관리 화면 -->
+<div id="adminWrap" class="hidden">
+  <div class="card">
+    <div class="row" style="justify-content:space-between">
+      <div>
+        <b>로그인됨</b>
+        <div class="muted">토큰 만료까지: <span id="exp"></span></div>
+      </div>
+      <button onclick="logout()">로그아웃</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin:0 0 10px;">템플릿 관리</h3>
+    <div class="row">
+      <button class="primary" onclick="createTemplate()">+ 템플릿 추가</button>
+    </div>
+    <ul id="tplList"></ul>
+  </div>
+
+  <div class="card">
+    <h3 id="tplTitle" style="margin:0 0 10px;">템플릿 선택</h3>
+    <div class="row">
+      <input type="file" id="bgFile" accept="image/*">
+      <button onclick="uploadBg()">배경 업로드</button>
+    </div>
+    <p class="muted">배경 업로드는 선택된 템플릿에 적용됩니다.</p>
+    <canvas id="canvas" width="720" height="400"></canvas>
+  </div>
 </div>
 
 <script>
-let templates=[], current=null, ctx;
-const canvas=document.getElementById("canvas");
-ctx=canvas.getContext("2d");
+  // ====== Token Store ======
+  const LS_TOKEN = "admin_token";
+  const LS_EXP = "admin_expiresAt";
 
-async function load(){
-  templates=await fetch("/api/templates").then(r=>r.json());
-  renderList();
-}
-function renderList(){
-  tplList.innerHTML="";
-  templates.forEach(t=>{
-    const li=document.createElement("li");
-    li.textContent=t.name;
-    li.onclick=()=>selectTpl(t);
-    tplList.appendChild(li);
-  });
-}
-function selectTpl(t){
-  current=t;
-  tplTitle.textContent=t.name;
-  if(t.backgroundUrl){
-    const img=new Image();
-    img.onload=()=>ctx.drawImage(img,0,0,720,400);
-    img.src=t.backgroundUrl;
+  function getToken() {
+    return localStorage.getItem(LS_TOKEN) || "";
   }
-}
-async function createTemplate(){
-  const r=await fetch("/api/admin/templates",{method:"POST"});
-  templates.push(await r.json());
-  renderList();
-}
-async function uploadBg(input){
-  const f=input.files[0];
-  const r=new FileReader();
-  r.onload=async()=>{
-    await fetch(`/api/admin/templates/${current.id}/upload`,{
-      method:"POST",
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({dataUrl:r.result})
+  function setToken(token, expiresAt) {
+    localStorage.setItem(LS_TOKEN, token);
+    localStorage.setItem(LS_EXP, String(expiresAt));
+  }
+  function clearToken() {
+    localStorage.removeItem(LS_TOKEN);
+    localStorage.removeItem(LS_EXP);
+  }
+  function getExpiresAt() {
+    return Number(localStorage.getItem(LS_EXP) || "0");
+  }
+
+  // ====== Auth Fetch Wrapper ======
+  async function adminFetch(url, options = {}) {
+    const token = getToken();
+    const headers = Object.assign({}, options.headers || {});
+    headers["Content-Type"] = headers["Content-Type"] || "application/json";
+    headers["Authorization"] = "Bearer " + token;
+    const res = await fetch(url, { ...options, headers });
+
+    // 토큰 만료/무효 처리
+    if (res.status === 401) {
+      clearToken();
+      showLogin();
+      throw new Error("인증이 만료되었어요. 다시 로그인 해주세요.");
+    }
+    return res;
+  }
+
+  // ====== UI Switch ======
+  const loginCard = document.getElementById("loginCard");
+  const adminWrap = document.getElementById("adminWrap");
+  const expEl = document.getElementById("exp");
+  const loginErr = document.getElementById("loginErr");
+
+  function showLogin(msg="") {
+    loginCard.classList.remove("hidden");
+    adminWrap.classList.add("hidden");
+    loginErr.textContent = msg;
+  }
+  function showAdmin() {
+    loginCard.classList.add("hidden");
+    adminWrap.classList.remove("hidden");
+    const exp = getExpiresAt();
+    expEl.textContent = exp ? new Date(exp).toLocaleString() : "-";
+  }
+
+  // ====== Login / Logout ======
+  async function login() {
+    loginErr.textContent = "";
+    const password = document.getElementById("pw").value.trim();
+    if (!password) {
+      loginErr.textContent = "비밀번호를 입력해줘.";
+      return;
+    }
+
+    const res = await fetch("/api/admin/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password })
     });
-    load();
-  };
-  r.readAsDataURL(f);
-}
-load();
+
+    const json = await res.json().catch(()=>({}));
+    if (!res.ok) {
+      loginErr.textContent = json?.error || "로그인 실패";
+      return;
+    }
+
+    setToken(json.token, json.expiresAt);
+    document.getElementById("pw").value = "";
+    showAdmin();
+    await load(); // 데이터 로드
+  }
+
+  async function logout() {
+    try {
+      await adminFetch("/api/admin/logout", { method:"POST", body: "{}" });
+    } catch (e) {}
+    clearToken();
+    showLogin("로그아웃 완료");
+  }
+
+  // ====== Template Management (기본) ======
+  let templates = [], current = null;
+  const tplList = document.getElementById("tplList");
+  const tplTitle = document.getElementById("tplTitle");
+  const canvas = document.getElementById("canvas");
+  const ctx = canvas.getContext("2d");
+
+  async function load(){
+    templates = await fetch("/api/templates").then(r=>r.json());
+    renderList();
+    // 선택 유지
+    if (current) {
+      const again = templates.find(t => t.id === current.id);
+      if (again) selectTpl(again);
+    }
+  }
+
+  function renderList(){
+    tplList.innerHTML = "";
+    templates.forEach(t => {
+      const li = document.createElement("li");
+      li.style.cursor = "pointer";
+      li.textContent = t.name;
+      li.onclick = () => selectTpl(t);
+      tplList.appendChild(li);
+    });
+  }
+
+  function selectTpl(t){
+    current = t;
+    tplTitle.textContent = "선택됨: " + t.name;
+    drawBackground();
+  }
+
+  function drawBackground(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+    if (!current || !current.backgroundUrl) return;
+
+    const img = new Image();
+    img.onload = () => {
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    };
+    img.src = current.backgroundUrl;
+  }
+
+  async function createTemplate(){
+    const res = await adminFetch("/api/admin/templates", {
+      method:"POST",
+      body: JSON.stringify({ name: "New Template" })
+    });
+    const tpl = await res.json();
+    templates.push(tpl);
+    renderList();
+  }
+
+  async function uploadBg(){
+    if (!current) {
+      alert("템플릿을 먼저 선택해줘!");
+      return;
+    }
+
+    const fileInput = document.getElementById("bgFile");
+    const f = fileInput.files?.[0];
+    if (!f) {
+      alert("업로드할 이미지를 선택해줘!");
+      return;
+    }
+
+    const r = new FileReader();
+    r.onload = async () => {
+      const res = await adminFetch(`/api/admin/templates/${current.id}/upload`, {
+        method:"POST",
+        body: JSON.stringify({ dataUrl: r.result })
+      });
+      const json = await res.json();
+      current.backgroundUrl = json.url;
+      drawBackground();
+      await load();
+      fileInput.value = "";
+      alert("업로드 완료! (MVP에 즉시 반영됨)");
+    };
+    r.readAsDataURL(f);
+  }
+
+  // ====== Boot ======
+  (async function boot(){
+    const token = getToken();
+    const exp = getExpiresAt();
+
+    if (token && exp && exp > Date.now()) {
+      showAdmin();
+      try {
+        await load();
+      } catch (e) {
+        showLogin(e?.message || "다시 로그인 해주세요.");
+      }
+    } else {
+      clearToken();
+      showLogin();
+    }
+  })();
 </script>
+
 </body>
 </html>
