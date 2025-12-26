@@ -1,5 +1,9 @@
 <!doctype html>
 <html lang="ko">
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<script>
+  emailjs.init("r-E6Bb0BR6UOFLDbb");
+</script>
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -400,29 +404,67 @@
     return pdf.output("blob");
   }
 
-  btnSend.addEventListener("click", async () => {
-    btnSend.disabled = true;
-    try {
-      const pdfBlob = await makePdfBlobFromPreview();
-      const formData = new FormData();
-      formData.append("pdf", pdfBlob, "business_card.pdf");
+  const btnSend = document.getElementById("btnSend");
 
-const res = await fetch("/api/save", { method: "POST", body: formData });
-const data = await res.json().catch(() => ({}));
-
-if (!res.ok || !data.ok) {
-  throw new Error(data.error || `HTTP ${res.status}`);
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);
+    r.onerror = reject;
+    r.readAsDataURL(blob);
+  });
 }
 
-alert("전송 완료! 담당자 이메일로 발송되었습니다.");
-
-    } catch (e) {
-      console.error(e);
-     alert("전송 실패: " + e.message);
-    } finally {
-      btnSend.disabled = false;
-    }
+async function makePdfBlobFromPreview() {
+  const canvas = await html2canvas(document.querySelector("#preview"), {
+    scale: 3,
+    useCORS: true
   });
+
+  const imgData = canvas.toDataURL("image/png");
+  const { jsPDF } = window.jspdf;
+
+  const pdf = new jsPDF({
+    orientation: "landscape",
+    unit: "mm",
+    format: [90, 50]
+  });
+
+  pdf.addImage(imgData, "PNG", 0, 0, 90, 50);
+  return pdf.output("blob");
+}
+
+btnSend.addEventListener("click", async () => {
+  btnSend.disabled = true;
+
+  try {
+    const pdfBlob = await makePdfBlobFromPreview();
+    const pdfDataUrl = await blobToBase64(pdfBlob);
+
+    const payload = {
+      customer_name: inputs.name.value.trim(),
+      customer_title: inputs.title.value.trim(),
+      customer_company: inputs.company.value.trim(),
+      customer_phone: inputs.phone.value.trim(),
+      customer_email: inputs.email.value.trim(),
+      pdf_base64: pdfDataUrl
+    };
+
+    // 🔴 여기 2줄이 “교체 대상”
+    const SERVICE_ID = "service_6gyisv8";
+    const TEMPLATE_ID = "template_1bls7qs";
+
+    await emailjs.send(SERVICE_ID, TEMPLATE_ID, payload);
+
+    alert("전송 완료! ahsvic@naver.com 으로 메일을 보냈어요.");
+  } catch (e) {
+    console.error(e);
+    alert("전송 실패: " + (e?.text || e?.message || String(e)));
+  } finally {
+    btnSend.disabled = false;
+  }
+});
+
 
   /***********************
    * 초기화
