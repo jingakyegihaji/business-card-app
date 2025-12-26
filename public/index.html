@@ -176,4 +176,164 @@
           name:   { x: 48,  y: 150, fontSize: 44, fontWeight: 700, letterSpacing: 0.2, align:"left" },
           title:  { x: 50,  y: 208, fontSize: 22, fontWeight: 400, opacity: 0.9, align:"left" },
           phone:  { x: 50,  y: 300, fontSize: 20, fontWeight: 400, opacity: 0.9, align:"left" },
-          email:  { x: 50,  y: 330,
+          email:  { x: 50,  y: 330, fontSize: 20, fontWeight: 400, opacity: 0.9, align:"left" },
+        }
+      },
+      {
+        id: "minimal_light",
+        name: "Minimal Light",
+        style: { lightBg: true },
+        fields: {
+          company:{ x: 58,  y: 88,  fontSize: 26, fontWeight: 600, color:"#111827", textShadow:"none", align:"left" },
+          name:   { x: 56,  y: 170, fontSize: 44, fontWeight: 700, color:"#111827", textShadow:"none", align:"left" },
+          title:  { x: 58,  y: 228, fontSize: 22, fontWeight: 400, color:"#374151", textShadow:"none", align:"left" },
+          phone:  { x: 58,  y: 304, fontSize: 20, fontWeight: 400, color:"#374151", textShadow:"none", align:"left" },
+          email:  { x: 58,  y: 334, fontSize: 20, fontWeight: 400, color:"#374151", textShadow:"none", align:"left" },
+        }
+      }
+    ];
+
+    // ====== DOM ======
+    const elTemplateSel = document.getElementById("templateSel");
+    const elPreview = document.getElementById("preview");
+    const btnSend = document.getElementById("btnSend");
+
+    const inputs = {
+      name: document.getElementById("nameInput"),
+      title: document.getElementById("titleInput"),
+      company: document.getElementById("companyInput"),
+      phone: document.getElementById("phoneInput"),
+      email: document.getElementById("emailInput"),
+    };
+
+    function populateTemplates(){
+      elTemplateSel.innerHTML = templates.map(t => `<option value="${t.id}">${t.name}</option>`).join("");
+      elTemplateSel.value = templates[0].id;
+    }
+    function getActiveTemplate(){
+      return templates.find(t => t.id === elTemplateSel.value) || templates[0];
+    }
+    function applyTemplateStyle(tpl){
+      if (tpl.style && tpl.style.lightBg){
+        elPreview.style.background = "linear-gradient(135deg, #ffffff, #f3f4f6)";
+        elPreview.style.boxShadow = "0 16px 40px rgba(0,0,0,0.10)";
+      } else {
+        elPreview.style.background = "linear-gradient(135deg, #0b1220, #111827)";
+        elPreview.style.boxShadow = "0 16px 40px rgba(0,0,0,0.16)";
+      }
+    }
+    function renderPreview(){
+      const tpl = getActiveTemplate();
+      applyTemplateStyle(tpl);
+
+      elPreview.querySelectorAll(".field").forEach(n => n.remove());
+
+      const values = {
+        name: inputs.name.value || "",
+        title: inputs.title.value || "",
+        company: inputs.company.value || "",
+        phone: inputs.phone.value || "",
+        email: inputs.email.value || ""
+      };
+
+      Object.entries(tpl.fields).forEach(([key, spec]) => {
+        const div = document.createElement("div");
+        div.className = "field";
+        div.textContent = values[key] ?? "";
+        div.style.left = Math.round(spec.x ?? 0) + "px";
+        div.style.top  = Math.round(spec.y ?? 0) + "px";
+        div.style.fontSize = Math.round(spec.fontSize ?? 18) + "px";
+        div.style.fontWeight = (spec.fontWeight ?? 400);
+        div.style.opacity = (spec.opacity ?? 1);
+        div.style.letterSpacing = (spec.letterSpacing ?? 0) + "px";
+        div.style.textAlign = spec.align || "left";
+        div.style.color = spec.color || "#ffffff";
+        div.style.textShadow = (spec.textShadow !== undefined ? spec.textShadow : "0 2px 10px rgba(0,0,0,0.25)");
+        elPreview.appendChild(div);
+      });
+    }
+
+    // ====== 캡쳐 → JPG dataURL ======
+    async function makePreviewJpegDataUrl(maxWidth = 720, quality = 0.55) {
+      const canvas = await html2canvas(document.querySelector("#preview"), {
+        scale: 1,
+        useCORS: true,
+        backgroundColor: null
+      });
+
+      const w = canvas.width;
+      const h = canvas.height;
+      const ratio = Math.min(1, maxWidth / w);
+
+      const out = document.createElement("canvas");
+      out.width = Math.round(w * ratio);
+      out.height = Math.round(h * ratio);
+
+      const ctx = out.getContext("2d");
+      ctx.drawImage(canvas, 0, 0, out.width, out.height);
+
+      return out.toDataURL("image/jpeg", quality);
+    }
+
+    // ====== 서버 업로드 ======
+    async function uploadPreviewToServer(dataUrl) {
+      const res = await fetch("/api/upload-preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dataUrl })
+      });
+
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json?.error || ("Upload failed: " + res.status));
+
+      return new URL(json.url, window.location.origin).toString();
+    }
+
+    // ====== 전송 ======
+    btnSend.addEventListener("click", async () => {
+      btnSend.disabled = true;
+
+      try {
+        debugEl.style.display = "none";
+        debugEl.textContent = "";
+
+        // 1) 캡쳐
+        const previewDataUrl = await makePreviewJpegDataUrl(720, 0.55);
+
+        // 2) 업로드 → URL
+        const previewUrl = await uploadPreviewToServer(previewDataUrl);
+
+        // 3) EmailJS payload (URL만 보냄)
+        const payload = {
+          customer_name: inputs.name.value.trim(),
+          customer_title: inputs.title.value.trim(),
+          customer_company: inputs.company.value.trim(),
+          customer_phone: inputs.phone.value.trim(),
+          customer_email: inputs.email.value.trim(),
+          template_name: getActiveTemplate().name,
+          preview_url: previewUrl
+        };
+
+        // 너의 EmailJS IDs
+        const SERVICE_ID = "service_6qyisv8";
+        const TEMPLATE_ID = "template_1bls7qs";
+
+        await emailjs.send(SERVICE_ID, TEMPLATE_ID, payload);
+        alert("전송 완료! (미리보기 URL 포함)");
+      } catch (e) {
+        console.error(e);
+        debug("[전송 실패]\n" + (e?.message || String(e)));
+        alert("전송 실패: " + (e?.message || String(e)));
+      } finally {
+        btnSend.disabled = false;
+      }
+    });
+
+    // ====== 초기화 ======
+    populateTemplates();
+    renderPreview();
+    elTemplateSel.addEventListener("change", renderPreview);
+    Object.values(inputs).forEach(inp => inp.addEventListener("input", renderPreview));
+  </script>
+</body>
+</html>
