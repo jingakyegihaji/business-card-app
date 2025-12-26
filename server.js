@@ -1,5 +1,14 @@
 console.log("BOOT MARKER 2025-12-26 A");
 console.log("BOOT: server.js is running");
+console.log(
+  "RESEND_KEY_PRESENT:",
+  Boolean(process.env.RESEND_API_KEY),
+  "LEN:",
+  process.env.RESEND_API_KEY ? process.env.RESEND_API_KEY.length : 0,
+  "PREFIX:",
+  process.env.RESEND_API_KEY ? process.env.RESEND_API_KEY.slice(0, 4) : "NONE"
+);
+
 console.log("BOOT: routes include /api/test-email");
 const express = require("express");
 const path = require("path");
