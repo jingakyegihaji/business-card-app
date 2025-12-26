@@ -14,8 +14,12 @@
   .muted{color:#6b7280;font-size:12px;line-height:1.4}
   .danger{color:#b91c1c}
   ul{padding-left:18px}
+  li{margin:6px 0}
   canvas{border:1px solid #e5e7eb;border-radius:12px;background:#fff;max-width:100%;height:auto}
   .hidden{display:none}
+  .pill{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid #e5e7eb;border-radius:999px;font-size:12px;color:#374151;background:#fff}
+  .selected{font-weight:700}
+  .spacer{height:6px}
 </style>
 </head>
 <body>
@@ -41,8 +45,8 @@
   <div class="card">
     <div class="row" style="justify-content:space-between">
       <div>
-        <b>로그인됨</b>
-        <div class="muted">토큰 만료까지: <span id="exp"></span></div>
+        <div class="pill">상태: <span class="selected">로그인됨</span></div>
+        <div class="muted" style="margin-top:6px;">토큰 만료: <span id="exp"></span></div>
       </div>
       <button onclick="logout()">로그아웃</button>
     </div>
@@ -52,16 +56,30 @@
     <h3 style="margin:0 0 10px;">템플릿 관리</h3>
     <div class="row">
       <button class="primary" onclick="createTemplate()">+ 템플릿 추가</button>
+      <span class="muted">추가 후 “이름 저장”으로 템플릿명을 바꿀 수 있어요.</span>
     </div>
+    <div class="spacer"></div>
     <ul id="tplList"></ul>
   </div>
 
   <div class="card">
     <h3 id="tplTitle" style="margin:0 0 10px;">템플릿 선택</h3>
+
+    <!-- ✅ 이름 변경 UI -->
+    <div class="row" style="margin:10px 0;">
+      <input id="tplNameInput" placeholder="템플릿 이름" style="min-width:260px;">
+      <button class="primary" onclick="saveTplName()">이름 저장</button>
+    </div>
+    <p class="muted" style="margin-top:0;">
+      - “이름 저장”을 누르면 즉시 저장되며, <b>MVP는 새로고침 시 반영</b>됩니다.<br/>
+      - (자동 즉시 반영이 필요하면 MVP에서 /api/templates를 주기적으로 다시 가져오도록 추가하면 돼요.)
+    </p>
+
     <div class="row">
       <input type="file" id="bgFile" accept="image/*">
       <button onclick="uploadBg()">배경 업로드</button>
     </div>
+
     <p class="muted">배경 업로드는 선택된 템플릿에 적용됩니다.</p>
     <canvas id="canvas" width="720" height="400"></canvas>
   </div>
@@ -72,9 +90,7 @@
   const LS_TOKEN = "admin_token";
   const LS_EXP = "admin_expiresAt";
 
-  function getToken() {
-    return localStorage.getItem(LS_TOKEN) || "";
-  }
+  function getToken() { return localStorage.getItem(LS_TOKEN) || ""; }
   function setToken(token, expiresAt) {
     localStorage.setItem(LS_TOKEN, token);
     localStorage.setItem(LS_EXP, String(expiresAt));
@@ -83,9 +99,7 @@
     localStorage.removeItem(LS_TOKEN);
     localStorage.removeItem(LS_EXP);
   }
-  function getExpiresAt() {
-    return Number(localStorage.getItem(LS_EXP) || "0");
-  }
+  function getExpiresAt() { return Number(localStorage.getItem(LS_EXP) || "0"); }
 
   // ====== Auth Fetch Wrapper ======
   async function adminFetch(url, options = {}) {
@@ -93,13 +107,13 @@
     const headers = Object.assign({}, options.headers || {});
     headers["Content-Type"] = headers["Content-Type"] || "application/json";
     headers["Authorization"] = "Bearer " + token;
+
     const res = await fetch(url, { ...options, headers });
 
-    // 토큰 만료/무효 처리
     if (res.status === 401) {
       clearToken();
-      showLogin();
-      throw new Error("인증이 만료되었어요. 다시 로그인 해주세요.");
+      showLogin("인증이 만료되었어요. 다시 로그인 해주세요.");
+      throw new Error("Unauthorized");
     }
     return res;
   }
@@ -126,10 +140,7 @@
   async function login() {
     loginErr.textContent = "";
     const password = document.getElementById("pw").value.trim();
-    if (!password) {
-      loginErr.textContent = "비밀번호를 입력해줘.";
-      return;
-    }
+    if (!password) { loginErr.textContent = "비밀번호를 입력해줘."; return; }
 
     const res = await fetch("/api/admin/login", {
       method: "POST",
@@ -146,31 +157,34 @@
     setToken(json.token, json.expiresAt);
     document.getElementById("pw").value = "";
     showAdmin();
-    await load(); // 데이터 로드
+    await load();
   }
 
   async function logout() {
-    try {
-      await adminFetch("/api/admin/logout", { method:"POST", body: "{}" });
-    } catch (e) {}
+    try { await adminFetch("/api/admin/logout", { method:"POST", body: "{}" }); } catch (e) {}
     clearToken();
     showLogin("로그아웃 완료");
   }
 
-  // ====== Template Management (기본) ======
+  // ====== Template Management ======
   let templates = [], current = null;
   const tplList = document.getElementById("tplList");
   const tplTitle = document.getElementById("tplTitle");
+  const tplNameInput = document.getElementById("tplNameInput");
   const canvas = document.getElementById("canvas");
   const ctx = canvas.getContext("2d");
 
   async function load(){
     templates = await fetch("/api/templates").then(r=>r.json());
     renderList();
+
     // 선택 유지
     if (current) {
       const again = templates.find(t => t.id === current.id);
       if (again) selectTpl(again);
+    } else if (templates.length) {
+      // 첫 진입에 첫 템플릿 자동 선택
+      selectTpl(templates[0]);
     }
   }
 
@@ -179,7 +193,8 @@
     templates.forEach(t => {
       const li = document.createElement("li");
       li.style.cursor = "pointer";
-      li.textContent = t.name;
+      li.textContent = t.name || "(이름 없음)";
+      if (current && current.id === t.id) li.classList.add("selected");
       li.onclick = () => selectTpl(t);
       tplList.appendChild(li);
     });
@@ -187,19 +202,18 @@
 
   function selectTpl(t){
     current = t;
-    tplTitle.textContent = "선택됨: " + t.name;
+    tplTitle.textContent = "선택됨: " + (t.name || "(이름 없음)");
+    tplNameInput.value = t.name || "";
     drawBackground();
+    renderList();
   }
 
   function drawBackground(){
     ctx.clearRect(0,0,canvas.width,canvas.height);
-
     if (!current || !current.backgroundUrl) return;
 
     const img = new Image();
-    img.onload = () => {
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-    };
+    img.onload = () => ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
     img.src = current.backgroundUrl;
   }
 
@@ -211,20 +225,37 @@
     const tpl = await res.json();
     templates.push(tpl);
     renderList();
+    selectTpl(tpl);
+  }
+
+  // ✅ 이름 저장
+  async function saveTplName() {
+    if (!current) return alert("템플릿을 먼저 선택해줘!");
+    const name = tplNameInput.value.trim();
+    if (!name) return alert("이름을 입력해줘!");
+
+    const res = await adminFetch(`/api/admin/templates/${current.id}`, {
+      method: "POST",
+      body: JSON.stringify({ name })
+    });
+
+    if (!res.ok) {
+      const json = await res.json().catch(()=>({}));
+      return alert("저장 실패: " + (json?.error || res.status));
+    }
+
+    current.name = name;
+    tplTitle.textContent = "선택됨: " + current.name;
+    await load();
+    alert("이름 저장 완료!");
   }
 
   async function uploadBg(){
-    if (!current) {
-      alert("템플릿을 먼저 선택해줘!");
-      return;
-    }
+    if (!current) { alert("템플릿을 먼저 선택해줘!"); return; }
 
     const fileInput = document.getElementById("bgFile");
     const f = fileInput.files?.[0];
-    if (!f) {
-      alert("업로드할 이미지를 선택해줘!");
-      return;
-    }
+    if (!f) { alert("업로드할 이미지를 선택해줘!"); return; }
 
     const r = new FileReader();
     r.onload = async () => {
@@ -232,12 +263,15 @@
         method:"POST",
         body: JSON.stringify({ dataUrl: r.result })
       });
-      const json = await res.json();
+
+      const json = await res.json().catch(()=>({}));
+      if (!res.ok) return alert("업로드 실패: " + (json?.error || res.status));
+
       current.backgroundUrl = json.url;
       drawBackground();
       await load();
       fileInput.value = "";
-      alert("업로드 완료! (MVP에 즉시 반영됨)");
+      alert("업로드 완료! (MVP는 새로고침하면 반영)");
     };
     r.readAsDataURL(f);
   }
@@ -249,11 +283,8 @@
 
     if (token && exp && exp > Date.now()) {
       showAdmin();
-      try {
-        await load();
-      } catch (e) {
-        showLogin(e?.message || "다시 로그인 해주세요.");
-      }
+      try { await load(); }
+      catch (e) { showLogin("다시 로그인 해주세요."); }
     } else {
       clearToken();
       showLogin();
