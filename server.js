@@ -4,65 +4,95 @@ const fs = require("fs");
 const crypto = require("crypto");
 
 const app = express();
-
-// dataURL 업로드 대비 (필요하면 20mb까지 올려도 됨)
-app.use(express.json({ limit: "15mb" }));
+app.use(express.json({ limit: "10mb" }));
 
 const PUBLIC_DIR = path.join(__dirname, "public");
+const DATA_DIR = path.join(__dirname, "data");
 const UPLOAD_DIR = path.join(PUBLIC_DIR, "uploads");
 
-// uploads 폴더 없으면 생성
+fs.mkdirSync(DATA_DIR, { recursive: true });
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
-// 정적 파일 서빙 (public/index.html, public/uploads/* 포함)
-app.use(express.static(PUBLIC_DIR, { etag: false }));
+const TPL_FILE = path.join(DATA_DIR, "templates.json");
+const FIELD_FILE = path.join(DATA_DIR, "fields.json");
 
-/**
- * POST /api/upload-preview
- * body: { dataUrl: "data:image/jpeg;base64,...." }
- * return: { url: "/uploads/xxx.jpg" }
- */
-app.post("/api/upload-preview", (req, res) => {
-  try {
-    const { dataUrl } = req.body || {};
-    if (!dataUrl || typeof dataUrl !== "string") {
-      return res.status(400).json({ error: "dataUrl is required" });
-    }
+// ---------- utils ----------
+function readJSON(file, fallback) {
+  if (!fs.existsSync(file)) return fallback;
+  return JSON.parse(fs.readFileSync(file, "utf-8"));
+}
+function writeJSON(file, data) {
+  fs.writeFileSync(file, JSON.stringify(data, null, 2));
+}
 
-    // jpeg/png만 허용
-    const match = dataUrl.match(/^data:(image\/jpeg|image\/png);base64,(.+)$/);
-    if (!match) {
-      return res.status(400).json({ error: "Invalid dataUrl format (jpeg/png base64 only)" });
-    }
+// ---------- 초기 데이터 ----------
+if (!fs.existsSync(FIELD_FILE)) {
+  writeJSON(FIELD_FILE, [
+    { key: "name", label: "이름", required: true },
+    { key: "title", label: "직함", required: false },
+    { key: "company", label: "회사", required: true },
+    { key: "phone", label: "전화", required: true },
+    { key: "email", label: "이메일", required: false }
+  ]);
+}
+if (!fs.existsSync(TPL_FILE)) {
+  writeJSON(TPL_FILE, []);
+}
 
-    const mime = match[1];
-    const b64 = match[2];
-    const ext = mime === "image/png" ? "png" : "jpg";
+// ---------- static ----------
+app.use(express.static(PUBLIC_DIR));
 
-    const fileName = `card_${Date.now()}_${crypto.randomUUID()}.${ext}`;
-    const filePath = path.join(UPLOAD_DIR, fileName);
-
-    const buf = Buffer.from(b64, "base64");
-
-    // 캡쳐가 실패하면 아주 작은 버퍼가 나올 수 있음
-    if (buf.length < 2000) {
-      return res.status(400).json({ error: "Image buffer too small (capture failed?)" });
-    }
-
-    fs.writeFileSync(filePath, buf);
-
-    // public/uploads 아래로 노출됨
-    return res.json({ url: `/uploads/${fileName}` });
-  } catch (e) {
-    console.error(e);
-    return res.status(500).json({ error: e?.message || String(e) });
-  }
+// ---------- public APIs ----------
+app.get("/api/fields", (req, res) => {
+  res.json(readJSON(FIELD_FILE, []));
 });
 
-// SPA fallback (필요 없으면 지워도 되지만, 안전하게 둠)
-app.get("*", (req, res) => {
-  res.sendFile(path.join(PUBLIC_DIR, "index.html"));
+app.get("/api/templates", (req, res) => {
+  res.json(readJSON(TPL_FILE, []));
 });
 
-const port = process.env.PORT || 3000;
-app.listen(port, () => console.log("Server running on port", port));
+// ---------- admin APIs ----------
+app.post("/api/admin/fields", (req, res) => {
+  writeJSON(FIELD_FILE, req.body);
+  res.json({ ok: true });
+});
+
+app.post("/api/admin/templates", (req, res) => {
+  const list = readJSON(TPL_FILE, []);
+  const tpl = {
+    id: crypto.randomUUID(),
+    name: req.body.name || "New Template",
+    backgroundUrl: "",
+    fields: {}
+  };
+  list.push(tpl);
+  writeJSON(TPL_FILE, list);
+  res.json(tpl);
+});
+
+app.post("/api/admin/templates/:id", (req, res) => {
+  const list = readJSON(TPL_FILE, []);
+  const tpl = list.find(t => t.id === req.params.id);
+  Object.assign(tpl, req.body);
+  writeJSON(TPL_FILE, list);
+  res.json({ ok: true });
+});
+
+app.post("/api/admin/templates/:id/upload", (req, res) => {
+  const { dataUrl } = req.body;
+  const m = dataUrl.match(/^data:image\/(png|jpeg);base64,(.+)$/);
+  const buf = Buffer.from(m[2], "base64");
+  const file = `tpl_${Date.now()}.jpg`;
+  fs.writeFileSync(path.join(UPLOAD_DIR, file), buf);
+
+  const list = readJSON(TPL_FILE, []);
+  const tpl = list.find(t => t.id === req.params.id);
+  tpl.backgroundUrl = `/uploads/${file}`;
+  writeJSON(TPL_FILE, list);
+
+  res.json({ url: tpl.backgroundUrl });
+});
+
+app.listen(process.env.PORT || 3000, () =>
+  console.log("Server running")
+);
