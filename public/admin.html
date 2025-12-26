@@ -22,13 +22,27 @@
   .grid{display:grid;grid-template-columns:460px 1fr;gap:14px}
   .gridTpl{display:grid;grid-template-columns:260px 1fr 320px;gap:14px}
   .hr{height:1px;background:var(--line);margin:12px 0}
-  canvas{border:1px solid var(--line);border-radius:12px;background:#fff;max-width:100%;height:auto}
   .fieldRow{display:grid;grid-template-columns:1fr 1fr 110px 70px 38px;gap:8px;align-items:center;margin:8px 0}
   .fieldRow input,.fieldRow select{padding:8px 10px}
   .mini{padding:7px 10px;font-size:12px}
   .pill{display:inline-flex;gap:8px;align-items:center;padding:6px 10px;border:1px solid var(--line);border-radius:999px;font-size:12px;background:#fff}
-  li{margin:6px 0;cursor:pointer}
-  li.sel{font-weight:700}
+
+  /* ✅ 캔버스 “보이는 영역”을 스크롤 가능하게 */
+  .canvasWrap{
+    border:1px solid var(--line);
+    border-radius:12px;
+    background:#fff;
+    overflow:auto;
+    max-width:100%;
+    max-height:620px;
+    padding:10px;
+  }
+  canvas{
+    display:block;
+    border:1px solid var(--line);
+    border-radius:12px;
+    background:#fff;
+  }
 </style>
 </head>
 <body>
@@ -80,6 +94,18 @@
         <div class="row">
           <button class="primary" onclick="createTemplate()">+ 템플릿 추가</button>
           <select id="tplSel" onchange="onTplChange()" style="min-width:240px"></select>
+
+          <!-- ✅ 줌 컨트롤 -->
+          <span class="pill">
+            Zoom
+            <select id="zoomSel" class="mini" onchange="setZoomFromUI()">
+              <option value="1">1x</option>
+              <option value="2">2x</option>
+              <option value="3">3x</option>
+              <option value="4" selected>4x</option>
+            </select>
+          </span>
+          <button class="mini" onclick="centerCanvas()">가운데로</button>
         </div>
 
         <div class="hr"></div>
@@ -106,18 +132,23 @@
 
           <!-- canvas -->
           <div>
-            <canvas id="canvas" width="2880" height="1600"></canvas>
+            <div class="canvasWrap" id="canvasWrap">
+              <!-- ✅ 여기 캔버스는 JS가 줌에 맞춰 실제 픽셀 크기를 바꿈 -->
+              <canvas id="canvas"></canvas>
+            </div>
             <div class="muted" style="margin-top:8px">
-              - 박스를 클릭하면 선택되고, 드래그하면 위치가 바뀝니다.
+              - 줌을 올려도 저장 좌표는 <b>720×400 기준</b>이라 사용자 화면이 망가지지 않습니다.
             </div>
           </div>
 
-          <!-- quick style (optional minimal) -->
+          <!-- selected info -->
           <div>
             <div class="muted"><b>선택 필드</b></div>
             <div id="selInfo" class="muted">선택 없음</div>
             <div class="hr"></div>
-            <div class="muted">기본 스타일은 템플릿 fields에 저장됩니다. (추후 확장 가능)</div>
+            <div class="muted">
+              팁) 저장을 눌러야 사용자 화면(F5)에 반영돼요.
+            </div>
             <button class="mini" onclick="saveTemplate()">템플릿 저장</button>
           </div>
         </div>
@@ -237,7 +268,6 @@
   }
 
   async function saveCatalog(){
-    // validate
     const keys=new Set();
     for(const f of catalog){
       const k=(f.key||"").trim();
@@ -286,15 +316,14 @@
     renderEnabledBox();
     loadBg();
     draw();
+    updateSelInfo();
   }
 
   async function saveTemplate(){
     if(!activeTpl) return alert("템플릿 선택");
     activeTpl.name = tplName.value.trim() || activeTpl.name || "Template";
 
-    // enabledFields가 fields랑 싱크되도록(없어진 key 청소)
     const set = new Set(activeTpl.enabledFields || []);
-    // fields도 enabledFields에 없는 건 지우는 게 안전(원하면 유지 가능)
     if(activeTpl.fields){
       for(const k of Object.keys(activeTpl.fields)){
         if(!set.has(k)) delete activeTpl.fields[k];
@@ -342,7 +371,6 @@
     enabledBox.innerHTML="";
     if(!activeTpl) return;
 
-    const byKey = new Map(catalog.map(f=>[f.key, f]));
     const enabledSet = new Set(activeTpl.enabledFields || []);
     catalog.forEach(f=>{
       const k=f.key;
@@ -357,9 +385,9 @@
       cb.onchange=()=>{
         activeTpl.enabledFields = activeTpl.enabledFields || [];
         const s=new Set(activeTpl.enabledFields);
+
         if(cb.checked){
           s.add(k);
-          // 위치 기본 생성
           activeTpl.fields = activeTpl.fields || {};
           if(!activeTpl.fields[k]){
             activeTpl.fields[k] = {
@@ -378,6 +406,7 @@
           if(activeTpl.fields && activeTpl.fields[k]) delete activeTpl.fields[k];
           if(selectedKey===k) selectedKey=null;
         }
+
         activeTpl.enabledFields = Array.from(s);
         draw();
         updateSelInfo();
@@ -393,14 +422,52 @@
     });
   }
 
-  // ===== Canvas drag =====
+  // ===== Canvas (✅ 줌 적용: 저장 좌표는 720×400 기준) =====
+  const LOGICAL_W = 720;
+  const LOGICAL_H = 400;
+
+  const canvasWrap = document.getElementById("canvasWrap");
   const canvas=document.getElementById("canvas");
   const ctx=canvas.getContext("2d");
-  let bgImg=null;
 
+  const zoomSel = document.getElementById("zoomSel");
+  let zoom = Number(zoomSel.value || "4"); // 기본 4배
+
+  let bgImg=null;
   let draggingKey=null, offX=0, offY=0;
   let selectedKey=null;
   const selInfo=document.getElementById("selInfo");
+
+  function setZoomFromUI(){
+    const z = Number(zoomSel.value || "1");
+    setZoom(z);
+  }
+
+  function setZoom(z){
+    zoom = Math.max(1, Math.min(6, z));
+    // ✅ 캔버스 실제 픽셀 크기를 줌만큼 키움
+    canvas.width = LOGICAL_W * zoom;
+    canvas.height = LOGICAL_H * zoom;
+    draw();
+    // 보기 좋게 스크롤 위치 유지/조정
+    centerCanvas();
+  }
+
+  function centerCanvas(){
+    // 중앙으로 스크롤
+    const cx = (canvas.width - canvasWrap.clientWidth) / 2;
+    const cy = (canvas.height - canvasWrap.clientHeight) / 2;
+    canvasWrap.scrollLeft = Math.max(0, cx);
+    canvasWrap.scrollTop = Math.max(0, cy);
+  }
+
+  function toLogicalCoords(clientX, clientY){
+    const r = canvas.getBoundingClientRect();
+    const px = (clientX - r.left) * (canvas.width / r.width);
+    const py = (clientY - r.top) * (canvas.height / r.height);
+    // ✅ px,py는 "줌 적용된 픽셀" 좌표 -> 논리 좌표로 변환
+    return { x: px / zoom, y: py / zoom };
+  }
 
   function loadBg(){
     bgImg=null;
@@ -408,27 +475,40 @@
       const img=new Image();
       img.onload=()=>{bgImg=img; draw();};
       img.src=activeTpl.backgroundUrl;
+    } else {
+      draw();
     }
   }
 
   function draw(){
+    // ✅ 항상 논리 좌표계(720×400)로 그린 뒤, ctx를 zoom 스케일
+    ctx.setTransform(1,0,0,1,0,0);
     ctx.clearRect(0,0,canvas.width,canvas.height);
 
+    ctx.setTransform(zoom,0,0,zoom,0,0);
+
+    // background
     if(activeTpl && activeTpl.backgroundUrl){
       if(!bgImg) loadBg();
-      if(bgImg) ctx.drawImage(bgImg,0,0,canvas.width,canvas.height);
+      if(bgImg) ctx.drawImage(bgImg, 0, 0, LOGICAL_W, LOGICAL_H);
+      else {
+        ctx.fillStyle="#111827";
+        ctx.fillRect(0,0,LOGICAL_W,LOGICAL_H);
+      }
     } else {
       ctx.fillStyle="#111827";
-      ctx.fillRect(0,0,canvas.width,canvas.height);
+      ctx.fillRect(0,0,LOGICAL_W,LOGICAL_H);
     }
 
+    // overlay boxes
     if(!activeTpl || !activeTpl.fields) return;
     ctx.font="600 12px Arial";
+
     for(const [k,s] of Object.entries(activeTpl.fields)){
       const x=Number(s.x||0), y=Number(s.y||0);
       const w=Math.min(260, ctx.measureText(k).width+16);
       const h=22;
-      const sel = (k===selectedKey);
+      const sel=(k===selectedKey);
 
       ctx.fillStyle = sel ? "rgba(37,99,235,0.35)" : "rgba(0,0,0,0.35)";
       ctx.fillRect(x,y,w,h);
@@ -440,6 +520,7 @@
   }
 
   function hit(mx,my){
+    // mx,my는 "논리 좌표"
     if(!activeTpl || !activeTpl.fields) return null;
     ctx.font="600 12px Arial";
     for(const [k,s] of Object.entries(activeTpl.fields)){
@@ -460,13 +541,11 @@
   }
 
   canvas.addEventListener("mousedown",(e)=>{
-    const r=canvas.getBoundingClientRect();
-    const mx=(e.clientX-r.left)*(canvas.width/r.width);
-    const my=(e.clientY-r.top)*(canvas.height/r.height);
-    const h=hit(mx,my);
+    const p = toLogicalCoords(e.clientX, e.clientY);
+    const h=hit(p.x,p.y);
     if(h){
       selectedKey=h.k; draggingKey=h.k;
-      offX=mx-h.x; offY=my-h.y;
+      offX=p.x-h.x; offY=p.y-h.y;
     } else {
       selectedKey=null; draggingKey=null;
     }
@@ -476,12 +555,10 @@
 
   window.addEventListener("mousemove",(e)=>{
     if(!draggingKey || !activeTpl?.fields?.[draggingKey]) return;
-    const r=canvas.getBoundingClientRect();
-    const mx=(e.clientX-r.left)*(canvas.width/r.width);
-    const my=(e.clientY-r.top)*(canvas.height/r.height);
+    const p = toLogicalCoords(e.clientX, e.clientY);
     const s=activeTpl.fields[draggingKey];
-    s.x=Math.max(0, Math.round(mx-offX));
-    s.y=Math.max(0, Math.round(my-offY));
+    s.x=Math.max(0, Math.round(p.x-offX));
+    s.y=Math.max(0, Math.round(p.y-offY));
     updateSelInfo();
     draw();
   });
@@ -512,8 +589,15 @@
     draw();
   }
 
-  async function bootData(){ await reloadPublicData(); }
+  async function bootData(){
+    // ✅ 줌 먼저 세팅(캔버스 크기 결정)
+    setZoom(Number(zoomSel.value || "4"));
+    await reloadPublicData();
+    // 템플릿 로드 후 가운데로
+    centerCanvas();
+  }
 
+  // ===== Boot =====
   (async function boot(){
     const token=getToken(), exp=getExp();
     if(token && exp && exp>Date.now()){
