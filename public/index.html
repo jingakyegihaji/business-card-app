@@ -226,6 +226,39 @@
         elPreview.appendChild(div);
       });
     }
+    // 이미지 미리보기 전송
+    async function makePreviewJpegDataUrl(maxWidth = 720, quality = 0.55) {
+  const canvas = await html2canvas(document.querySelector("#preview"), {
+    scale: 1,
+    useCORS: true
+  });
+
+  // 크기 줄이기(용량 절약)
+  const w = canvas.width;
+  const h = canvas.height;
+  const ratio = Math.min(1, maxWidth / w);
+
+  const out = document.createElement("canvas");
+  out.width = Math.round(w * ratio);
+  out.height = Math.round(h * ratio);
+
+  const ctx = out.getContext("2d");
+  ctx.drawImage(canvas, 0, 0, out.width, out.height);
+
+  // JPG로 압축 (PNG보다 훨씬 작아짐)
+  return out.toDataURL("image/jpeg", quality);
+}
+   //patload 추가
+    const previewImg = await makePreviewJpegDataUrl(720, 0.55);
+    const payload = {
+  customer_name: inputs.name.value.trim(),
+  customer_title: inputs.title.value.trim(),
+  customer_company: inputs.company.value.trim(),
+  customer_phone: inputs.phone.value.trim(),
+  customer_email: inputs.email.value.trim(),
+  template_name: getActiveTemplate().name,
+  preview_img: previewImg
+};
 
     // 전송 (A안: 텍스트만)
     const btnSend = document.getElementById("btnSend");
