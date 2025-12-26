@@ -116,4 +116,5 @@ app.post("/api/save", upload.single("pdf"), async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log("Server running on", PORT));
+app.listen(PORT, () => console.log("BOOT MARKER 2025-12-26 B - Server running on", PORT));
+
