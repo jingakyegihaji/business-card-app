@@ -1,3 +1,4 @@
+console.log("BOOT MARKER 2025-12-26 A");
 console.log("BOOT: server.js is running");
 console.log("BOOT: routes include /api/test-email");
 const express = require("express");
