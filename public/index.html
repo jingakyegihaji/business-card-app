@@ -288,17 +288,19 @@
       try {
         const previewDataUrl = await makePreviewJpegDataUrl(720, 0.55);
 
-        const payload = {
-          customer_name: inputs.name.value.trim(),
-          customer_title: inputs.title.value.trim(),
-          customer_company: inputs.company.value.trim(),
-          customer_phone: inputs.phone.value.trim(),
-          customer_email: inputs.email.value.trim(),
-          template_name: getActiveTemplate().name,
+        const base64Only = previewDataUrl.split(",")[1];
 
-          // ⭐️ EmailJS 템플릿 Attachments에서 Variable Attachment 이름과 동일해야 함
-          card_image: previewDataUrl
-        };
+const payload = {
+  customer_name: inputs.name.value.trim(),
+  customer_title: inputs.title.value.trim(),
+  customer_company: inputs.company.value.trim(),
+  customer_phone: inputs.phone.value.trim(),
+  customer_email: inputs.email.value.trim(),
+  template_name: getActiveTemplate().name,
+
+  // CID attachment
+  card_image: base64Only
+};
 
         const SERVICE_ID = "service_6qyisv8";
         const TEMPLATE_ID = "template_1bls7qs";
