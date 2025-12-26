@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"/>
+<title>Back Office</title>
+<style>
+body{font-family:sans-serif;padding:20px}
+input,button{margin:4px}
+.box{border:1px solid #ddd;padding:10px;margin-bottom:20px}
+.field{cursor:pointer}
+canvas{border:1px solid #ccc}
+</style>
+</head>
+<body>
+
+<h2>템플릿 관리</h2>
+<div class="box">
+  <button onclick="createTemplate()">+ 템플릿 추가</button>
+  <ul id="tplList"></ul>
+</div>
+
+<div class="box">
+  <h3 id="tplTitle"></h3>
+  <input type="file" onchange="uploadBg(this)">
+  <br/>
+  <canvas id="canvas" width="720" height="400"></canvas>
+</div>
+
+<script>
+let templates=[], current=null, ctx;
+const canvas=document.getElementById("canvas");
+ctx=canvas.getContext("2d");
+
+async function load(){
+  templates=await fetch("/api/templates").then(r=>r.json());
+  renderList();
+}
+function renderList(){
+  tplList.innerHTML="";
+  templates.forEach(t=>{
+    const li=document.createElement("li");
+    li.textContent=t.name;
+    li.onclick=()=>selectTpl(t);
+    tplList.appendChild(li);
+  });
+}
+function selectTpl(t){
+  current=t;
+  tplTitle.textContent=t.name;
+  if(t.backgroundUrl){
+    const img=new Image();
+    img.onload=()=>ctx.drawImage(img,0,0,720,400);
+    img.src=t.backgroundUrl;
+  }
+}
+async function createTemplate(){
+  const r=await fetch("/api/admin/templates",{method:"POST"});
+  templates.push(await r.json());
+  renderList();
+}
+async function uploadBg(input){
+  const f=input.files[0];
+  const r=new FileReader();
+  r.onload=async()=>{
+    await fetch(`/api/admin/templates/${current.id}/upload`,{
+      method:"POST",
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({dataUrl:r.result})
+    });
+    load();
+  };
+  r.readAsDataURL(f);
+}
+load();
+</script>
+</body>
+</html>
