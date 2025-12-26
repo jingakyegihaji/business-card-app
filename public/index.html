@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>명함 주문 MVP</title>
+  <title>Business Card App (MVP)</title>
 
   <!-- EmailJS -->
   <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
@@ -31,12 +31,9 @@
     button.primary{background:var(--accent);border-color:var(--accent);color:#fff;}
     button:active{transform:translateY(1px)}
     button:disabled{opacity:0.55;cursor:not-allowed;}
-    .hint{margin-top:10px;font-size:12px;color:var(--muted);line-height:1.45;}
-    .toast{
-      display:none;margin-top:10px;padding:10px 12px;border-radius:12px;
-      border:1px dashed #c7d2fe;background:#eef2ff;color:#1f2937;font-size:12px;line-height:1.4;
-      white-space:pre-wrap;
-    }
+    .hint{margin-top:10px;font-size:12px;color:var(--muted);line-height:1.4;}
+    .warn{margin-top:10px;font-size:12px;line-height:1.4;padding:10px;border-radius:12px;border:1px dashed #f59e0b;background:#fffbeb;color:#92400e;display:none;}
+    code{background:#f3f4f6;border-radius:6px;padding:1px 6px}
 
     .previewWrap{display:flex;flex-direction:column;gap:12px;}
     .previewHeader{display:flex;align-items:center;justify-content:space-between;gap:10px;}
@@ -44,16 +41,9 @@
 
     #preview{
       width:720px;aspect-ratio:90/50;border-radius:18px;border:1px solid var(--line);
-      background:linear-gradient(135deg,#0b1220,#111827);
+      background:#111827;
       position:relative;overflow:hidden;box-shadow:0 16px 40px rgba(0,0,0,0.16);
-    }
-    #preview::before{
-      content:"";position:absolute;inset:-40px;
-      background:
-        radial-gradient(circle at 20% 30%, rgba(37,99,235,0.55), transparent 45%),
-        radial-gradient(circle at 70% 60%, rgba(16,185,129,0.38), transparent 46%),
-        radial-gradient(circle at 40% 80%, rgba(249,115,22,0.28), transparent 50%);
-      filter:blur(2px);opacity:0.9;pointer-events:none;
+      background-size:cover;background-position:center;
     }
     .field{position:absolute;white-space:pre;transform-origin:left top;color:#fff;text-shadow:0 2px 10px rgba(0,0,0,0.25);user-select:none;}
     .cornerMark{
@@ -68,7 +58,6 @@
         linear-gradient(#fff,#fff) right 16px bottom 16px / 24px 2px no-repeat,
         linear-gradient(#fff,#fff) right 16px bottom 16px / 2px 24px no-repeat;
     }
-
     @media (max-width: 980px){
       .grid{grid-template-columns:1fr}
       #preview{width:100%}
@@ -82,9 +71,9 @@
     <header>
       <div>
         <h1>명함 주문 MVP</h1>
-        <p class="sub">템플릿 → 좌표 배치 → 입력 즉시 반영 → 전송하기(메일 + 미리보기 URL)</p>
+        <p class="sub">Back office 데이터(/api/templates, /api/fields) 기반으로 동작</p>
       </div>
-      <div class="badge">EmailJS + html2canvas + Render Upload</div>
+      <div class="badge">User: / &nbsp; Admin: /admin.html</div>
     </header>
 
     <div class="grid">
@@ -96,48 +85,26 @@
           <select id="templateSel"></select>
         </div>
 
-        <div class="row">
-          <label for="nameInput">이름</label>
-          <input id="nameInput" value="홍길동"/>
-        </div>
-
-        <div class="row">
-          <label for="titleInput">직함</label>
-          <input id="titleInput" value="Sales Manager"/>
-        </div>
-
-        <div class="row">
-          <label for="companyInput">회사</label>
-          <input id="companyInput" value="ACME Inc."/>
-        </div>
-
-        <div class="row">
-          <label for="phoneInput">전화</label>
-          <input id="phoneInput" value="+82 10-1234-5678"/>
-        </div>
-
-        <div class="row">
-          <label for="emailInput">이메일</label>
-          <input id="emailInput" value="hello@example.com"/>
-        </div>
+        <!-- ✅ fields.json 기반으로 폼 자동 생성 -->
+        <div id="dynamicFields"></div>
 
         <div class="btns">
           <button class="primary" id="btnSend">전송하기</button>
+          <button id="btnReload">템플릿 새로고침</button>
         </div>
 
         <div class="hint">
-          - 전송 시 미리보기를 캡쳐하여 서버(<code>/uploads</code>)에 저장하고, 공개 URL을 EmailJS로 전송합니다.<br/>
-          - EmailJS 템플릿에서 <b>{{preview_url}}</b> 변수를 사용해 이미지를 표시하세요.<br/>
-          - Render는 재배포/재시작 시 업로드가 날아갈 수 있습니다(확인용 MVP면 OK).
+          - 템플릿/필드 정의는 서버에서 가져옵니다: <code>/api/templates</code>, <code>/api/fields</code><br/>
+          - Back office에서 템플릿 추가 후, 여기서 <b>F5</b> 또는 “템플릿 새로고침”을 누르면 반영됩니다.
         </div>
 
-        <div id="debug" class="toast"></div>
+        <div class="warn" id="warnBox"></div>
       </section>
 
       <section class="previewWrap">
         <div class="previewHeader">
           <div class="badge">Preview (#preview)</div>
-          <div class="badge">90×50mm</div>
+          <div class="badge">90×50mm (720×400)</div>
         </div>
 
         <div id="preview">
@@ -148,98 +115,147 @@
   </div>
 
   <script>
-    // ====== 디버그 박스 ======
-    const debugEl = document.getElementById("debug");
-    function debug(msg){
-      debugEl.style.display = "block";
-      debugEl.textContent = String(msg);
-    }
-    window.addEventListener("error", (e) => {
-      debug("[JS Error] " + (e?.message || e));
-    });
+    // ===== EmailJS init =====
+    emailjs.init("r-E6Bb0BR6UOFLDbb"); // Public Key
 
-    // ====== EmailJS init ======
-    try{
-      emailjs.init("r-E6Bb0BR6UOFLDbb"); // Public Key
-    }catch(e){
-      debug("EmailJS init 실패: " + (e?.message || e));
-    }
+    const SERVICE_ID = "service_6qyisv8";
+    const TEMPLATE_ID = "template_1bls7qs";
 
-    // ====== 템플릿 ======
-    const templates = [
-      {
-        id: "classic_dark",
-        name: "Classic Dark",
-        style: { lightBg: false },
-        fields: {
-          company:{ x: 50,  y: 76,  fontSize: 26, fontWeight: 600, opacity: 0.95, align:"left" },
-          name:   { x: 48,  y: 150, fontSize: 44, fontWeight: 700, letterSpacing: 0.2, align:"left" },
-          title:  { x: 50,  y: 208, fontSize: 22, fontWeight: 400, opacity: 0.9, align:"left" },
-          phone:  { x: 50,  y: 300, fontSize: 20, fontWeight: 400, opacity: 0.9, align:"left" },
-          email:  { x: 50,  y: 330, fontSize: 20, fontWeight: 400, opacity: 0.9, align:"left" },
-        }
-      },
-      {
-        id: "minimal_light",
-        name: "Minimal Light",
-        style: { lightBg: true },
-        fields: {
-          company:{ x: 58,  y: 88,  fontSize: 26, fontWeight: 600, color:"#111827", textShadow:"none", align:"left" },
-          name:   { x: 56,  y: 170, fontSize: 44, fontWeight: 700, color:"#111827", textShadow:"none", align:"left" },
-          title:  { x: 58,  y: 228, fontSize: 22, fontWeight: 400, color:"#374151", textShadow:"none", align:"left" },
-          phone:  { x: 58,  y: 304, fontSize: 20, fontWeight: 400, color:"#374151", textShadow:"none", align:"left" },
-          email:  { x: 58,  y: 334, fontSize: 20, fontWeight: 400, color:"#374151", textShadow:"none", align:"left" },
-        }
-      }
-    ];
-
-    // ====== DOM ======
+    // ===== DOM =====
     const elTemplateSel = document.getElementById("templateSel");
     const elPreview = document.getElementById("preview");
-    const btnSend = document.getElementById("btnSend");
+    const elDynamicFields = document.getElementById("dynamicFields");
+    const warnBox = document.getElementById("warnBox");
 
-    const inputs = {
-      name: document.getElementById("nameInput"),
-      title: document.getElementById("titleInput"),
-      company: document.getElementById("companyInput"),
-      phone: document.getElementById("phoneInput"),
-      email: document.getElementById("emailInput"),
-    };
+    const btnSend = document.getElementById("btnSend");
+    const btnReload = document.getElementById("btnReload");
+
+    // ===== State =====
+    let templates = [];
+    let fieldDefs = [];
+    let inputs = {}; // key -> input element
+
+    function showWarn(msg){
+      warnBox.style.display = "block";
+      warnBox.textContent = msg;
+    }
+    function clearWarn(){
+      warnBox.style.display = "none";
+      warnBox.textContent = "";
+    }
+
+    function cacheBusted(url){
+      const u = new URL(url, window.location.origin);
+      u.searchParams.set("_", Date.now().toString());
+      return u.toString();
+    }
+
+    async function loadFields(){
+      const res = await fetch(cacheBusted("/api/fields"));
+      if (!res.ok) throw new Error("fields load failed: " + res.status);
+      fieldDefs = await res.json();
+    }
+
+    async function loadTemplates(){
+      const res = await fetch(cacheBusted("/api/templates"));
+      if (!res.ok) throw new Error("templates load failed: " + res.status);
+      templates = await res.json();
+    }
 
     function populateTemplates(){
-      elTemplateSel.innerHTML = templates.map(t => `<option value="${t.id}">${t.name}</option>`).join("");
+      elTemplateSel.innerHTML = "";
+
+      if (!templates.length){
+        elTemplateSel.innerHTML = `<option value="">(템플릿 없음)</option>`;
+        elTemplateSel.value = "";
+        showWarn("템플릿이 없습니다. /admin.html에서 템플릿을 추가하고 배경 이미지를 업로드한 뒤 다시 시도하세요.");
+        return;
+      }
+
+      clearWarn();
+      elTemplateSel.innerHTML = templates.map(t => `<option value="${t.id}">${escapeHtml(t.name || "(이름 없음)")}</option>`).join("");
       elTemplateSel.value = templates[0].id;
     }
-    function getActiveTemplate(){
-      return templates.find(t => t.id === elTemplateSel.value) || templates[0];
+
+    function escapeHtml(str){
+      return String(str).replace(/[&<>"']/g, m => ({
+        "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"
+      }[m]));
     }
-    function applyTemplateStyle(tpl){
-      if (tpl.style && tpl.style.lightBg){
-        elPreview.style.background = "linear-gradient(135deg, #ffffff, #f3f4f6)";
-        elPreview.style.boxShadow = "0 16px 40px rgba(0,0,0,0.10)";
+
+    function getActiveTemplate(){
+      const id = elTemplateSel.value;
+      return templates.find(t => t.id === id) || null;
+    }
+
+    function buildForm(){
+      elDynamicFields.innerHTML = "";
+      inputs = {};
+
+      fieldDefs
+        .slice()
+        .forEach(def => {
+          const row = document.createElement("div");
+          row.className = "row";
+
+          const lab = document.createElement("label");
+          lab.textContent = def.label || def.key;
+          lab.setAttribute("for", "inp_" + def.key);
+
+          const inp = document.createElement("input");
+          inp.id = "inp_" + def.key;
+          inp.placeholder = def.label || def.key;
+          inp.value = sampleValue(def.key);
+          inp.addEventListener("input", renderPreview);
+
+          row.appendChild(lab);
+          row.appendChild(inp);
+          elDynamicFields.appendChild(row);
+
+          inputs[def.key] = inp;
+        });
+    }
+
+    function sampleValue(key){
+      const samples = {
+        name: "홍길동",
+        title: "Sales Manager",
+        company: "ACME Inc.",
+        phone: "+82 10-1234-5678",
+        email: "hello@example.com"
+      };
+      return samples[key] || "";
+    }
+
+    function applyTemplateBackground(tpl){
+      // 배경 이미지가 있으면 그걸 우선 사용
+      if (tpl && tpl.backgroundUrl){
+        elPreview.style.backgroundImage = `url('${tpl.backgroundUrl}')`;
+        elPreview.style.backgroundColor = "#111827";
       } else {
-        elPreview.style.background = "linear-gradient(135deg, #0b1220, #111827)";
-        elPreview.style.boxShadow = "0 16px 40px rgba(0,0,0,0.16)";
+        elPreview.style.backgroundImage = "none";
+        elPreview.style.backgroundColor = "#111827";
       }
     }
+
     function renderPreview(){
       const tpl = getActiveTemplate();
-      applyTemplateStyle(tpl);
+      applyTemplateBackground(tpl);
 
+      // 기존 field 제거
       elPreview.querySelectorAll(".field").forEach(n => n.remove());
 
-      const values = {
-        name: inputs.name.value || "",
-        title: inputs.title.value || "",
-        company: inputs.company.value || "",
-        phone: inputs.phone.value || "",
-        email: inputs.email.value || ""
-      };
+      if (!tpl) return;
 
-      Object.entries(tpl.fields).forEach(([key, spec]) => {
+      const values = {};
+      Object.keys(inputs).forEach(k => values[k] = (inputs[k].value || ""));
+
+      const fieldMap = tpl.fields || {};
+      Object.entries(fieldMap).forEach(([key, spec]) => {
         const div = document.createElement("div");
         div.className = "field";
         div.textContent = values[key] ?? "";
+
         div.style.left = Math.round(spec.x ?? 0) + "px";
         div.style.top  = Math.round(spec.y ?? 0) + "px";
         div.style.fontSize = Math.round(spec.fontSize ?? 18) + "px";
@@ -247,13 +263,13 @@
         div.style.opacity = (spec.opacity ?? 1);
         div.style.letterSpacing = (spec.letterSpacing ?? 0) + "px";
         div.style.textAlign = spec.align || "left";
-        div.style.color = spec.color || "#ffffff";
-        div.style.textShadow = (spec.textShadow !== undefined ? spec.textShadow : "0 2px 10px rgba(0,0,0,0.25)");
+        if (spec.color) div.style.color = spec.color;
+        if (spec.textShadow) div.style.textShadow = spec.textShadow;
+
         elPreview.appendChild(div);
       });
     }
 
-    // ====== 캡쳐 → JPG dataURL ======
     async function makePreviewJpegDataUrl(maxWidth = 720, quality = 0.55) {
       const canvas = await html2canvas(document.querySelector("#preview"), {
         scale: 1,
@@ -275,65 +291,68 @@
       return out.toDataURL("image/jpeg", quality);
     }
 
-    // ====== 서버 업로드 ======
     async function uploadPreviewToServer(dataUrl) {
       const res = await fetch("/api/upload-preview", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ dataUrl })
       });
-
-      const json = await res.json().catch(() => ({}));
+      const json = await res.json().catch(()=>({}));
       if (!res.ok) throw new Error(json?.error || ("Upload failed: " + res.status));
-
       return new URL(json.url, window.location.origin).toString();
     }
 
-    // ====== 전송 ======
     btnSend.addEventListener("click", async () => {
       btnSend.disabled = true;
-
       try {
-        debugEl.style.display = "none";
-        debugEl.textContent = "";
+        const tpl = getActiveTemplate();
+        if (!tpl) throw new Error("템플릿이 없습니다.");
 
-        // 1) 캡쳐
         const previewDataUrl = await makePreviewJpegDataUrl(720, 0.55);
-
-        // 2) 업로드 → URL
         const previewUrl = await uploadPreviewToServer(previewDataUrl);
 
-        // 3) EmailJS payload (URL만 보냄)
+        // payload는 기존 변수명 유지 + preview_url 추가
         const payload = {
-          customer_name: inputs.name.value.trim(),
-          customer_title: inputs.title.value.trim(),
-          customer_company: inputs.company.value.trim(),
-          customer_phone: inputs.phone.value.trim(),
-          customer_email: inputs.email.value.trim(),
-          template_name: getActiveTemplate().name,
+          template_name: tpl.name || "",
           preview_url: previewUrl
         };
-
-        // 너의 EmailJS IDs
-        const SERVICE_ID = "service_6qyisv8";
-        const TEMPLATE_ID = "template_1bls7qs";
+        Object.keys(inputs).forEach(k => payload["customer_" + k] = (inputs[k].value || "").trim());
 
         await emailjs.send(SERVICE_ID, TEMPLATE_ID, payload);
-        alert("전송 완료! (미리보기 URL 포함)");
+        alert("전송 완료! 미리보기 URL 포함해서 보냈어요.");
       } catch (e) {
         console.error(e);
-        debug("[전송 실패]\n" + (e?.message || String(e)));
         alert("전송 실패: " + (e?.message || String(e)));
       } finally {
         btnSend.disabled = false;
       }
     });
 
-    // ====== 초기화 ======
-    populateTemplates();
-    renderPreview();
+    btnReload.addEventListener("click", async () => {
+      try{
+        await boot();
+        alert("템플릿 새로고침 완료!");
+      }catch(e){
+        alert("새로고침 실패: " + (e?.message || String(e)));
+      }
+    });
+
+    // 템플릿 변경 시 미리보기 다시 렌더
     elTemplateSel.addEventListener("change", renderPreview);
-    Object.values(inputs).forEach(inp => inp.addEventListener("input", renderPreview));
+
+    async function boot(){
+      clearWarn();
+      await loadFields();
+      await loadTemplates();
+      populateTemplates();
+      buildForm();
+      renderPreview();
+    }
+
+    boot().catch(e => {
+      console.error(e);
+      showWarn("초기 로딩 실패: " + (e?.message || String(e)));
+    });
   </script>
 </body>
 </html>
