@@ -5,292 +5,525 @@
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>Back Office</title>
 <style>
-  body{font-family:Arial,"맑은 고딕",sans-serif;padding:20px;background:#f6f7fb;color:#111827}
-  .card{background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:14px;margin-bottom:14px;box-shadow:0 6px 18px rgba(0,0,0,0.06)}
-  input,button{padding:10px;border-radius:10px;border:1px solid #e5e7eb;font-size:14px}
+  :root{--bg:#f6f7fb;--card:#fff;--line:#e5e7eb;--text:#111827;--muted:#6b7280;--accent:#2563eb;}
+  body{margin:0;font-family:Arial,"맑은 고딕",sans-serif;background:var(--bg);color:var(--text);}
+  .wrap{max-width:1320px;margin:18px auto;padding:18px;}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:14px;box-shadow:0 6px 18px rgba(0,0,0,0.06)}
+  h2{margin:0 0 12px}
+  h3{margin:0 0 10px;font-size:14px}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  input,select,button{border:1px solid var(--line);border-radius:10px;padding:10px;font-size:13px;background:#fff}
   button{cursor:pointer}
-  button.primary{background:#2563eb;color:#fff;border-color:#2563eb}
-  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-  .muted{color:#6b7280;font-size:12px;line-height:1.4}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  button:disabled{opacity:.6;cursor:not-allowed}
+  .muted{color:var(--muted);font-size:12px;line-height:1.4}
   .danger{color:#b91c1c}
-  ul{padding-left:18px}
-  li{margin:6px 0}
-  canvas{border:1px solid #e5e7eb;border-radius:12px;background:#fff;max-width:100%;height:auto}
   .hidden{display:none}
-  .pill{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid #e5e7eb;border-radius:999px;font-size:12px;color:#374151;background:#fff}
-  .selected{font-weight:700}
-  .spacer{height:6px}
+  .grid{display:grid;grid-template-columns:460px 1fr;gap:14px}
+  .gridTpl{display:grid;grid-template-columns:260px 1fr 320px;gap:14px}
+  .hr{height:1px;background:var(--line);margin:12px 0}
+  canvas{border:1px solid var(--line);border-radius:12px;background:#fff;max-width:100%;height:auto}
+  .fieldRow{display:grid;grid-template-columns:1fr 1fr 110px 70px 38px;gap:8px;align-items:center;margin:8px 0}
+  .fieldRow input,.fieldRow select{padding:8px 10px}
+  .mini{padding:7px 10px;font-size:12px}
+  .pill{display:inline-flex;gap:8px;align-items:center;padding:6px 10px;border:1px solid var(--line);border-radius:999px;font-size:12px;background:#fff}
+  li{margin:6px 0;cursor:pointer}
+  li.sel{font-weight:700}
 </style>
 </head>
 <body>
+<div class="wrap">
+  <h2>Back Office</h2>
 
-<h2>Back Office</h2>
-
-<!-- 로그인 카드 -->
-<div id="loginCard" class="card">
-  <h3 style="margin:0 0 10px;">관리자 로그인</h3>
-  <div class="row">
-    <input id="pw" type="password" placeholder="Admin Password" style="min-width:260px;">
-    <button class="primary" onclick="login()">로그인</button>
+  <div id="loginCard" class="card">
+    <h3>관리자 로그인</h3>
+    <div class="row">
+      <input id="pw" type="password" placeholder="ADMIN_PASSWORD" style="min-width:260px;">
+      <button class="primary" onclick="login()">로그인</button>
+    </div>
+    <div id="loginErr" class="muted danger"></div>
   </div>
-  <p class="muted">
-    - Render 환경변수 <b>ADMIN_PASSWORD</b>로 비밀번호를 설정하세요.<br/>
-    - 로그인 토큰은 브라우저에 저장되고, 서버 재시작 시 만료됩니다.
-  </p>
-  <div id="loginErr" class="muted danger"></div>
-</div>
 
-<!-- 관리 화면 -->
-<div id="adminWrap" class="hidden">
-  <div class="card">
-    <div class="row" style="justify-content:space-between">
-      <div>
-        <div class="pill">상태: <span class="selected">로그인됨</span></div>
-        <div class="muted" style="margin-top:6px;">토큰 만료: <span id="exp"></span></div>
+  <div id="adminWrap" class="hidden">
+    <div class="card">
+      <div class="row" style="justify-content:space-between">
+        <div>
+          <span class="pill">로그인됨</span>
+          <div class="muted" style="margin-top:6px">토큰 만료: <span id="exp"></span></div>
+        </div>
+        <button onclick="logout()">로그아웃</button>
       </div>
-      <button onclick="logout()">로그아웃</button>
-    </div>
-  </div>
-
-  <div class="card">
-    <h3 style="margin:0 0 10px;">템플릿 관리</h3>
-    <div class="row">
-      <button class="primary" onclick="createTemplate()">+ 템플릿 추가</button>
-      <span class="muted">추가 후 “이름 저장”으로 템플릿명을 바꿀 수 있어요.</span>
-    </div>
-    <div class="spacer"></div>
-    <ul id="tplList"></ul>
-  </div>
-
-  <div class="card">
-    <h3 id="tplTitle" style="margin:0 0 10px;">템플릿 선택</h3>
-
-    <!-- ✅ 이름 변경 UI -->
-    <div class="row" style="margin:10px 0;">
-      <input id="tplNameInput" placeholder="템플릿 이름" style="min-width:260px;">
-      <button class="primary" onclick="saveTplName()">이름 저장</button>
-    </div>
-    <p class="muted" style="margin-top:0;">
-      - “이름 저장”을 누르면 즉시 저장되며, <b>MVP는 새로고침 시 반영</b>됩니다.<br/>
-      - (자동 즉시 반영이 필요하면 MVP에서 /api/templates를 주기적으로 다시 가져오도록 추가하면 돼요.)
-    </p>
-
-    <div class="row">
-      <input type="file" id="bgFile" accept="image/*">
-      <button onclick="uploadBg()">배경 업로드</button>
     </div>
 
-    <p class="muted">배경 업로드는 선택된 템플릿에 적용됩니다.</p>
-    <canvas id="canvas" width="720" height="400"></canvas>
+    <div class="grid">
+      <!-- Field Catalog -->
+      <div class="card">
+        <h3>필드 카탈로그 (전체 후보군)</h3>
+        <div class="muted">
+          - 여기서 “가능한 입력 항목”을 등록합니다. (예: mobile, fax, office_phone)<br/>
+          - 실제로 사용자 화면에 보일지는 <b>템플릿별로 선택(enabledFields)</b>됩니다.
+        </div>
+        <div class="hr"></div>
+        <div class="row">
+          <button class="primary" onclick="addCatalogField()">+ 항목 추가</button>
+          <button onclick="saveCatalog()">저장</button>
+        </div>
+        <div class="hr"></div>
+        <div class="muted">Key / Label / Type / Required / (X)</div>
+        <div id="catalogBox"></div>
+      </div>
+
+      <!-- Template Editor -->
+      <div class="card">
+        <h3>템플릿별 입력 항목 선택 + 위치 편집</h3>
+
+        <div class="row">
+          <button class="primary" onclick="createTemplate()">+ 템플릿 추가</button>
+          <select id="tplSel" onchange="onTplChange()" style="min-width:240px"></select>
+        </div>
+
+        <div class="hr"></div>
+
+        <div class="row">
+          <input id="tplName" placeholder="템플릿 이름" style="min-width:240px">
+          <button class="mini" onclick="saveTemplate()">저장</button>
+          <input type="file" id="bgFile" accept="image/*">
+          <button class="mini" onclick="uploadBg()">배경 업로드</button>
+        </div>
+
+        <div class="hr"></div>
+
+        <div class="gridTpl">
+          <!-- enabledFields -->
+          <div>
+            <div class="muted" style="margin-bottom:8px"><b>이 템플릿에서 사용할 입력 항목</b></div>
+            <div id="enabledBox"></div>
+            <div class="muted" style="margin-top:10px">
+              - 체크된 항목만 사용자 화면에 입력 박스로 보여요.<br/>
+              - 체크하면 캔버스에 기본 위치가 생성되고, 드래그로 이동 가능.
+            </div>
+          </div>
+
+          <!-- canvas -->
+          <div>
+            <canvas id="canvas" width="720" height="400"></canvas>
+            <div class="muted" style="margin-top:8px">
+              - 박스를 클릭하면 선택되고, 드래그하면 위치가 바뀝니다.
+            </div>
+          </div>
+
+          <!-- quick style (optional minimal) -->
+          <div>
+            <div class="muted"><b>선택 필드</b></div>
+            <div id="selInfo" class="muted">선택 없음</div>
+            <div class="hr"></div>
+            <div class="muted">기본 스타일은 템플릿 fields에 저장됩니다. (추후 확장 가능)</div>
+            <button class="mini" onclick="saveTemplate()">템플릿 저장</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="card muted">
+      사용자: <b>/</b> &nbsp;|&nbsp; 운영자: <b>/admin.html</b>
+    </div>
   </div>
 </div>
 
 <script>
-  // ====== Token Store ======
-  const LS_TOKEN = "admin_token";
-  const LS_EXP = "admin_expiresAt";
+  // ===== Token =====
+  const LS_TOKEN="admin_token", LS_EXP="admin_expiresAt";
+  const loginCard=document.getElementById("loginCard");
+  const adminWrap=document.getElementById("adminWrap");
+  const expEl=document.getElementById("exp");
+  const loginErr=document.getElementById("loginErr");
 
-  function getToken() { return localStorage.getItem(LS_TOKEN) || ""; }
-  function setToken(token, expiresAt) {
-    localStorage.setItem(LS_TOKEN, token);
-    localStorage.setItem(LS_EXP, String(expiresAt));
-  }
-  function clearToken() {
-    localStorage.removeItem(LS_TOKEN);
-    localStorage.removeItem(LS_EXP);
-  }
-  function getExpiresAt() { return Number(localStorage.getItem(LS_EXP) || "0"); }
+  function getToken(){return localStorage.getItem(LS_TOKEN)||"";}
+  function getExp(){return Number(localStorage.getItem(LS_EXP)||"0");}
+  function setToken(t,e){localStorage.setItem(LS_TOKEN,t);localStorage.setItem(LS_EXP,String(e));}
+  function clearToken(){localStorage.removeItem(LS_TOKEN);localStorage.removeItem(LS_EXP);}
 
-  // ====== Auth Fetch Wrapper ======
-  async function adminFetch(url, options = {}) {
-    const token = getToken();
-    const headers = Object.assign({}, options.headers || {});
+  function showLogin(msg=""){loginCard.classList.remove("hidden");adminWrap.classList.add("hidden");loginErr.textContent=msg;}
+  function showAdmin(){loginCard.classList.add("hidden");adminWrap.classList.remove("hidden");expEl.textContent=new Date(getExp()).toLocaleString();}
+
+  async function adminFetch(url, opt={}){
+    const headers = Object.assign({}, opt.headers||{});
     headers["Content-Type"] = headers["Content-Type"] || "application/json";
-    headers["Authorization"] = "Bearer " + token;
-
-    const res = await fetch(url, { ...options, headers });
-
-    if (res.status === 401) {
+    headers["Authorization"] = "Bearer " + getToken();
+    const res = await fetch(url, { ...opt, headers });
+    if (res.status===401){
       clearToken();
-      showLogin("인증이 만료되었어요. 다시 로그인 해주세요.");
+      showLogin("인증 만료. 다시 로그인 해주세요.");
       throw new Error("Unauthorized");
     }
     return res;
   }
 
-  // ====== UI Switch ======
-  const loginCard = document.getElementById("loginCard");
-  const adminWrap = document.getElementById("adminWrap");
-  const expEl = document.getElementById("exp");
-  const loginErr = document.getElementById("loginErr");
-
-  function showLogin(msg="") {
-    loginCard.classList.remove("hidden");
-    adminWrap.classList.add("hidden");
-    loginErr.textContent = msg;
-  }
-  function showAdmin() {
-    loginCard.classList.add("hidden");
-    adminWrap.classList.remove("hidden");
-    const exp = getExpiresAt();
-    expEl.textContent = exp ? new Date(exp).toLocaleString() : "-";
-  }
-
-  // ====== Login / Logout ======
-  async function login() {
-    loginErr.textContent = "";
-    const password = document.getElementById("pw").value.trim();
-    if (!password) { loginErr.textContent = "비밀번호를 입력해줘."; return; }
-
-    const res = await fetch("/api/admin/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password })
-    });
-
+  async function login(){
+    const password = (document.getElementById("pw").value||"").trim();
+    if(!password){loginErr.textContent="비밀번호 입력";return;}
+    const res = await fetch("/api/admin/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({password})});
     const json = await res.json().catch(()=>({}));
-    if (!res.ok) {
-      loginErr.textContent = json?.error || "로그인 실패";
-      return;
-    }
-
-    setToken(json.token, json.expiresAt);
-    document.getElementById("pw").value = "";
+    if(!res.ok){loginErr.textContent=json?.error||"로그인 실패";return;}
+    setToken(json.token,json.expiresAt);
+    document.getElementById("pw").value="";
     showAdmin();
-    await load();
+    await bootData();
+  }
+  async function logout(){
+    try{await adminFetch("/api/admin/logout",{method:"POST",body:"{}"});}catch(e){}
+    clearToken(); showLogin("로그아웃 완료");
   }
 
-  async function logout() {
-    try { await adminFetch("/api/admin/logout", { method:"POST", body: "{}" }); } catch (e) {}
-    clearToken();
-    showLogin("로그아웃 완료");
-  }
+  // ===== Data =====
+  let catalog = [];      // fields.json
+  let templates = [];    // templates.json
+  let activeTpl = null;
 
-  // ====== Template Management ======
-  let templates = [], current = null;
-  const tplList = document.getElementById("tplList");
-  const tplTitle = document.getElementById("tplTitle");
-  const tplNameInput = document.getElementById("tplNameInput");
-  const canvas = document.getElementById("canvas");
-  const ctx = canvas.getContext("2d");
+  // ===== Catalog UI =====
+  const catalogBox = document.getElementById("catalogBox");
 
-  async function load(){
-    templates = await fetch("/api/templates").then(r=>r.json());
-    renderList();
+  function renderCatalog(){
+    catalogBox.innerHTML="";
+    catalog.forEach((f, idx)=>{
+      const row=document.createElement("div");
+      row.className="fieldRow";
 
-    // 선택 유지
-    if (current) {
-      const again = templates.find(t => t.id === current.id);
-      if (again) selectTpl(again);
-    } else if (templates.length) {
-      // 첫 진입에 첫 템플릿 자동 선택
-      selectTpl(templates[0]);
-    }
-  }
+      const key=document.createElement("input"); key.placeholder="key"; key.value=f.key||"";
+      key.oninput=()=>{ f.key=key.value.trim(); renderEnabledBox(); };
 
-  function renderList(){
-    tplList.innerHTML = "";
-    templates.forEach(t => {
-      const li = document.createElement("li");
-      li.style.cursor = "pointer";
-      li.textContent = t.name || "(이름 없음)";
-      if (current && current.id === t.id) li.classList.add("selected");
-      li.onclick = () => selectTpl(t);
-      tplList.appendChild(li);
+      const label=document.createElement("input"); label.placeholder="label"; label.value=f.label||"";
+      label.oninput=()=>{ f.label=label.value; renderEnabledBox(); };
+
+      const type=document.createElement("select");
+      ["text","email","tel","number"].forEach(t=>{
+        const o=document.createElement("option"); o.value=t; o.textContent=t;
+        if((f.type||"text")===t) o.selected=true;
+        type.appendChild(o);
+      });
+      type.onchange=()=>{ f.type=type.value; };
+
+      const req=document.createElement("input"); req.type="checkbox"; req.checked=!!f.required;
+      req.onchange=()=>{ f.required=req.checked; };
+
+      const del=document.createElement("button"); del.textContent="X"; del.className="mini";
+      del.onclick=()=>{
+        const k=f.key;
+        catalog.splice(idx,1);
+        // 템플릿에서도 제거
+        templates.forEach(t=>{
+          if(Array.isArray(t.enabledFields)) t.enabledFields = t.enabledFields.filter(x=>x!==k);
+          if(t.fields && k && t.fields[k]) delete t.fields[k];
+        });
+        renderCatalog();
+        renderEnabledBox();
+        draw();
+      };
+
+      row.appendChild(key);
+      row.appendChild(label);
+      row.appendChild(type);
+      row.appendChild(req);
+      row.appendChild(del);
+      catalogBox.appendChild(row);
     });
   }
 
-  function selectTpl(t){
-    current = t;
-    tplTitle.textContent = "선택됨: " + (t.name || "(이름 없음)");
-    tplNameInput.value = t.name || "";
-    drawBackground();
-    renderList();
+  function addCatalogField(){
+    catalog.push({ key:"", label:"", type:"text", required:false, placeholder:"" });
+    renderCatalog();
+    renderEnabledBox();
   }
 
-  function drawBackground(){
-    ctx.clearRect(0,0,canvas.width,canvas.height);
-    if (!current || !current.backgroundUrl) return;
+  async function saveCatalog(){
+    // validate
+    const keys=new Set();
+    for(const f of catalog){
+      const k=(f.key||"").trim();
+      if(!k) return alert("Catalog key는 비울 수 없어요.");
+      if(keys.has(k)) return alert("중복 key: " + k);
+      keys.add(k);
+      f.key=k;
+      if(!f.type) f.type="text";
+    }
+    const res = await adminFetch("/api/admin/fields",{method:"POST",body:JSON.stringify(catalog)});
+    const j = await res.json().catch(()=>({}));
+    if(!res.ok) return alert("저장 실패: " + (j?.error||res.status));
+    await reloadPublicData();
+    alert("필드 카탈로그 저장 완료! (사용자 화면 F5 반영)");
+  }
 
-    const img = new Image();
-    img.onload = () => ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-    img.src = current.backgroundUrl;
+  // ===== Templates =====
+  const tplSel=document.getElementById("tplSel");
+  const tplName=document.getElementById("tplName");
+
+  function renderTplSelect(){
+    tplSel.innerHTML="";
+    templates.forEach(t=>{
+      const o=document.createElement("option");
+      o.value=t.id;
+      o.textContent=t.name||"(이름 없음)";
+      tplSel.appendChild(o);
+    });
+    if(activeTpl) tplSel.value=activeTpl.id;
   }
 
   async function createTemplate(){
-    const res = await adminFetch("/api/admin/templates", {
-      method:"POST",
-      body: JSON.stringify({ name: "New Template" })
-    });
+    const res = await adminFetch("/api/admin/templates",{method:"POST",body:JSON.stringify({name:"New Template"})});
     const tpl = await res.json();
     templates.push(tpl);
-    renderList();
-    selectTpl(tpl);
+    activeTpl=tpl;
+    renderTplSelect();
+    onTplChange();
   }
 
-  // ✅ 이름 저장
-  async function saveTplName() {
-    if (!current) return alert("템플릿을 먼저 선택해줘!");
-    const name = tplNameInput.value.trim();
-    if (!name) return alert("이름을 입력해줘!");
+  function onTplChange(){
+    const id=tplSel.value;
+    activeTpl=templates.find(t=>t.id===id)||null;
+    tplName.value=activeTpl?.name||"";
+    selectedKey=null;
+    renderEnabledBox();
+    loadBg();
+    draw();
+  }
 
-    const res = await adminFetch(`/api/admin/templates/${current.id}`, {
-      method: "POST",
-      body: JSON.stringify({ name })
-    });
+  async function saveTemplate(){
+    if(!activeTpl) return alert("템플릿 선택");
+    activeTpl.name = tplName.value.trim() || activeTpl.name || "Template";
 
-    if (!res.ok) {
-      const json = await res.json().catch(()=>({}));
-      return alert("저장 실패: " + (json?.error || res.status));
+    // enabledFields가 fields랑 싱크되도록(없어진 key 청소)
+    const set = new Set(activeTpl.enabledFields || []);
+    // fields도 enabledFields에 없는 건 지우는 게 안전(원하면 유지 가능)
+    if(activeTpl.fields){
+      for(const k of Object.keys(activeTpl.fields)){
+        if(!set.has(k)) delete activeTpl.fields[k];
+      }
     }
 
-    current.name = name;
-    tplTitle.textContent = "선택됨: " + current.name;
-    await load();
-    alert("이름 저장 완료!");
+    const res = await adminFetch(`/api/admin/templates/${activeTpl.id}`,{
+      method:"POST",
+      body:JSON.stringify({
+        name:activeTpl.name,
+        backgroundUrl:activeTpl.backgroundUrl||"",
+        size:activeTpl.size||{w:720,h:400},
+        enabledFields: activeTpl.enabledFields||[],
+        fields: activeTpl.fields||{}
+      })
+    });
+    const j=await res.json().catch(()=>({}));
+    if(!res.ok) return alert("저장 실패: " + (j?.error||res.status));
+    await reloadPublicData();
+    alert("템플릿 저장 완료! (사용자 화면 F5 반영)");
   }
 
   async function uploadBg(){
-    if (!current) { alert("템플릿을 먼저 선택해줘!"); return; }
-
-    const fileInput = document.getElementById("bgFile");
-    const f = fileInput.files?.[0];
-    if (!f) { alert("업로드할 이미지를 선택해줘!"); return; }
-
-    const r = new FileReader();
-    r.onload = async () => {
-      const res = await adminFetch(`/api/admin/templates/${current.id}/upload`, {
-        method:"POST",
-        body: JSON.stringify({ dataUrl: r.result })
-      });
-
-      const json = await res.json().catch(()=>({}));
-      if (!res.ok) return alert("업로드 실패: " + (json?.error || res.status));
-
-      current.backgroundUrl = json.url;
-      drawBackground();
-      await load();
-      fileInput.value = "";
-      alert("업로드 완료! (MVP는 새로고침하면 반영)");
+    if(!activeTpl) return alert("템플릿 선택");
+    const f=document.getElementById("bgFile").files?.[0];
+    if(!f) return alert("이미지 선택");
+    const r=new FileReader();
+    r.onload=async()=>{
+      const res=await adminFetch(`/api/admin/templates/${activeTpl.id}/upload`,{method:"POST",body:JSON.stringify({dataUrl:r.result})});
+      const j=await res.json().catch(()=>({}));
+      if(!res.ok) return alert("업로드 실패: " + (j?.error||res.status));
+      activeTpl.backgroundUrl=j.url;
+      loadBg();
+      draw();
+      await reloadPublicData();
+      alert("배경 업로드 완료!");
     };
     r.readAsDataURL(f);
   }
 
-  // ====== Boot ======
-  (async function boot(){
-    const token = getToken();
-    const exp = getExpiresAt();
+  // ===== enabledFields UI =====
+  const enabledBox=document.getElementById("enabledBox");
 
-    if (token && exp && exp > Date.now()) {
+  function renderEnabledBox(){
+    enabledBox.innerHTML="";
+    if(!activeTpl) return;
+
+    const byKey = new Map(catalog.map(f=>[f.key, f]));
+    const enabledSet = new Set(activeTpl.enabledFields || []);
+    catalog.forEach(f=>{
+      const k=f.key;
+      if(!k) return;
+      const wrap=document.createElement("div");
+      wrap.className="row";
+      wrap.style.margin="6px 0";
+
+      const cb=document.createElement("input");
+      cb.type="checkbox";
+      cb.checked = enabledSet.has(k);
+      cb.onchange=()=>{
+        activeTpl.enabledFields = activeTpl.enabledFields || [];
+        const s=new Set(activeTpl.enabledFields);
+        if(cb.checked){
+          s.add(k);
+          // 위치 기본 생성
+          activeTpl.fields = activeTpl.fields || {};
+          if(!activeTpl.fields[k]){
+            activeTpl.fields[k] = {
+              x: 60,
+              y: 70 + Object.keys(activeTpl.fields).length*32,
+              fontSize: 20,
+              fontWeight: 600,
+              color: "#ffffff",
+              opacity: 1,
+              align: "left",
+              textShadow: "0 2px 10px rgba(0,0,0,0.25)"
+            };
+          }
+        } else {
+          s.delete(k);
+          if(activeTpl.fields && activeTpl.fields[k]) delete activeTpl.fields[k];
+          if(selectedKey===k) selectedKey=null;
+        }
+        activeTpl.enabledFields = Array.from(s);
+        draw();
+        updateSelInfo();
+      };
+
+      const text=document.createElement("div");
+      text.className="muted";
+      text.textContent = `${f.label || k} (${k})`;
+
+      wrap.appendChild(cb);
+      wrap.appendChild(text);
+      enabledBox.appendChild(wrap);
+    });
+  }
+
+  // ===== Canvas drag =====
+  const canvas=document.getElementById("canvas");
+  const ctx=canvas.getContext("2d");
+  let bgImg=null;
+
+  let draggingKey=null, offX=0, offY=0;
+  let selectedKey=null;
+  const selInfo=document.getElementById("selInfo");
+
+  function loadBg(){
+    bgImg=null;
+    if(activeTpl && activeTpl.backgroundUrl){
+      const img=new Image();
+      img.onload=()=>{bgImg=img; draw();};
+      img.src=activeTpl.backgroundUrl;
+    }
+  }
+
+  function draw(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+    if(activeTpl && activeTpl.backgroundUrl){
+      if(!bgImg) loadBg();
+      if(bgImg) ctx.drawImage(bgImg,0,0,canvas.width,canvas.height);
+    } else {
+      ctx.fillStyle="#111827";
+      ctx.fillRect(0,0,canvas.width,canvas.height);
+    }
+
+    if(!activeTpl || !activeTpl.fields) return;
+    ctx.font="600 12px Arial";
+    for(const [k,s] of Object.entries(activeTpl.fields)){
+      const x=Number(s.x||0), y=Number(s.y||0);
+      const w=Math.min(260, ctx.measureText(k).width+16);
+      const h=22;
+      const sel = (k===selectedKey);
+
+      ctx.fillStyle = sel ? "rgba(37,99,235,0.35)" : "rgba(0,0,0,0.35)";
+      ctx.fillRect(x,y,w,h);
+      ctx.strokeStyle = sel ? "rgba(37,99,235,0.95)" : "rgba(255,255,255,0.35)";
+      ctx.strokeRect(x,y,w,h);
+      ctx.fillStyle="#fff";
+      ctx.fillText(k, x+8, y+15);
+    }
+  }
+
+  function hit(mx,my){
+    if(!activeTpl || !activeTpl.fields) return null;
+    ctx.font="600 12px Arial";
+    for(const [k,s] of Object.entries(activeTpl.fields)){
+      const x=Number(s.x||0), y=Number(s.y||0);
+      const w=Math.min(260, ctx.measureText(k).width+16);
+      const h=22;
+      if(mx>=x && mx<=x+w && my>=y && my<=y+h) return {k,x,y,w,h};
+    }
+    return null;
+  }
+
+  function updateSelInfo(){
+    if(!selectedKey) selInfo.textContent="선택 없음";
+    else {
+      const s = activeTpl?.fields?.[selectedKey];
+      selInfo.textContent = `${selectedKey} (x:${s?.x}, y:${s?.y})`;
+    }
+  }
+
+  canvas.addEventListener("mousedown",(e)=>{
+    const r=canvas.getBoundingClientRect();
+    const mx=(e.clientX-r.left)*(canvas.width/r.width);
+    const my=(e.clientY-r.top)*(canvas.height/r.height);
+    const h=hit(mx,my);
+    if(h){
+      selectedKey=h.k; draggingKey=h.k;
+      offX=mx-h.x; offY=my-h.y;
+    } else {
+      selectedKey=null; draggingKey=null;
+    }
+    updateSelInfo();
+    draw();
+  });
+
+  window.addEventListener("mousemove",(e)=>{
+    if(!draggingKey || !activeTpl?.fields?.[draggingKey]) return;
+    const r=canvas.getBoundingClientRect();
+    const mx=(e.clientX-r.left)*(canvas.width/r.width);
+    const my=(e.clientY-r.top)*(canvas.height/r.height);
+    const s=activeTpl.fields[draggingKey];
+    s.x=Math.max(0, Math.round(mx-offX));
+    s.y=Math.max(0, Math.round(my-offY));
+    updateSelInfo();
+    draw();
+  });
+  window.addEventListener("mouseup",()=>{draggingKey=null;});
+
+  // ===== Reload =====
+  async function reloadPublicData(){
+    catalog = await fetch("/api/fields?_="+Date.now()).then(r=>r.json());
+    templates = await fetch("/api/templates?_="+Date.now()).then(r=>r.json());
+
+    renderCatalog();
+
+    if(activeTpl){
+      const again = templates.find(t=>t.id===activeTpl.id);
+      activeTpl = again || templates[0] || null;
+    } else {
+      activeTpl = templates[0] || null;
+    }
+
+    renderTplSelect();
+    if(activeTpl){
+      tplName.value = activeTpl.name || "";
+    }
+    selectedKey=null;
+    renderEnabledBox();
+    loadBg();
+    updateSelInfo();
+    draw();
+  }
+
+  async function bootData(){ await reloadPublicData(); }
+
+  (async function boot(){
+    const token=getToken(), exp=getExp();
+    if(token && exp && exp>Date.now()){
       showAdmin();
-      try { await load(); }
-      catch (e) { showLogin("다시 로그인 해주세요."); }
+      await bootData();
     } else {
       clearToken();
       showLogin();
     }
   })();
 </script>
-
 </body>
 </html>
