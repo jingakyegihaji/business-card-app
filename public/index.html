@@ -3,12 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Business Card App (MVP)</title>
+  <title>명함 주문 MVP</title>
 
-  <!-- EmailJS -->
   <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
-
-  <!-- html2canvas -->
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 
   <style>
@@ -27,40 +24,27 @@
     select,input{width:100%;border:1px solid var(--line);border-radius:10px;padding:10px;outline:none;background:#fff;font-size:13px;}
     input:focus,select:focus{border-color:#bcd3ff;box-shadow:0 0 0 3px rgba(37,99,235,0.12)}
     .btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;}
-    button{border:1px solid var(--line);background:#fff;padding:10px 12px;border-radius:12px;cursor:pointer;font-size:13px;display:inline-flex;align-items:center;gap:8px;}
+    button{border:1px solid var(--line);background:#fff;padding:10px 12px;border-radius:12px;cursor:pointer;font-size:13px;}
     button.primary{background:var(--accent);border-color:var(--accent);color:#fff;}
-    button:active{transform:translateY(1px)}
     button:disabled{opacity:0.55;cursor:not-allowed;}
     .hint{margin-top:10px;font-size:12px;color:var(--muted);line-height:1.4;}
     .warn{margin-top:10px;font-size:12px;line-height:1.4;padding:10px;border-radius:12px;border:1px dashed #f59e0b;background:#fffbeb;color:#92400e;display:none;}
-    code{background:#f3f4f6;border-radius:6px;padding:1px 6px}
 
     .previewWrap{display:flex;flex-direction:column;gap:12px;}
     .previewHeader{display:flex;align-items:center;justify-content:space-between;gap:10px;}
     .badge{font-size:12px;color:var(--muted);}
 
     #preview{
-      width:720px;aspect-ratio:90/50;border-radius:18px;border:1px solid var(--line);
+      width:720px;height:400px;border-radius:18px;border:1px solid var(--line);
       background:#111827;
       position:relative;overflow:hidden;box-shadow:0 16px 40px rgba(0,0,0,0.16);
       background-size:cover;background-position:center;
     }
     .field{position:absolute;white-space:pre;transform-origin:left top;color:#fff;text-shadow:0 2px 10px rgba(0,0,0,0.25);user-select:none;}
-    .cornerMark{
-      position:absolute;inset:0;pointer-events:none;opacity:0.16;
-      background:
-        linear-gradient(#fff,#fff) left 16px top 16px / 24px 2px no-repeat,
-        linear-gradient(#fff,#fff) left 16px top 16px / 2px 24px no-repeat,
-        linear-gradient(#fff,#fff) right 16px top 16px / 24px 2px no-repeat,
-        linear-gradient(#fff,#fff) right 16px top 16px / 2px 24px no-repeat,
-        linear-gradient(#fff,#fff) left 16px bottom 16px / 24px 2px no-repeat,
-        linear-gradient(#fff,#fff) left 16px bottom 16px / 2px 24px no-repeat,
-        linear-gradient(#fff,#fff) right 16px bottom 16px / 24px 2px no-repeat,
-        linear-gradient(#fff,#fff) right 16px bottom 16px / 2px 24px no-repeat;
-    }
+    .cornerMark{position:absolute;inset:0;pointer-events:none;opacity:0.16}
     @media (max-width: 980px){
       .grid{grid-template-columns:1fr}
-      #preview{width:100%}
+      #preview{width:100%;height:auto;aspect-ratio:90/50}
       label{width:95px}
     }
   </style>
@@ -71,9 +55,9 @@
     <header>
       <div>
         <h1>명함 주문 MVP</h1>
-        <p class="sub">Back office 데이터(/api/templates, /api/fields) 기반으로 동작</p>
+        <p class="sub">템플릿별로 입력 항목이 달라집니다.</p>
       </div>
-      <div class="badge">User: / &nbsp; Admin: /admin.html</div>
+      <div class="badge">Admin: /admin.html</div>
     </header>
 
     <div class="grid">
@@ -85,17 +69,16 @@
           <select id="templateSel"></select>
         </div>
 
-        <!-- ✅ fields.json 기반으로 폼 자동 생성 -->
         <div id="dynamicFields"></div>
 
         <div class="btns">
           <button class="primary" id="btnSend">전송하기</button>
-          <button id="btnReload">템플릿 새로고침</button>
+          <button id="btnReload">새로고침</button>
         </div>
 
         <div class="hint">
-          - 템플릿/필드 정의는 서버에서 가져옵니다: <code>/api/templates</code>, <code>/api/fields</code><br/>
-          - Back office에서 템플릿 추가 후, 여기서 <b>F5</b> 또는 “템플릿 새로고침”을 누르면 반영됩니다.
+          - 입력폼은 선택 템플릿의 <b>enabledFields</b> 기준으로 생성됩니다.<br/>
+          - 위치는 템플릿의 <b>fields[key].x/y</b> 기준입니다.
         </div>
 
         <div class="warn" id="warnBox"></div>
@@ -103,256 +86,230 @@
 
       <section class="previewWrap">
         <div class="previewHeader">
-          <div class="badge">Preview (#preview)</div>
-          <div class="badge">90×50mm (720×400)</div>
+          <div class="badge">Preview</div>
+          <div class="badge">720×400</div>
         </div>
 
-        <div id="preview">
-          <div class="cornerMark" aria-hidden="true"></div>
-        </div>
+        <div id="preview"></div>
       </section>
     </div>
   </div>
 
-  <script>
-    // ===== EmailJS init =====
-    emailjs.init("r-E6Bb0BR6UOFLDbb"); // Public Key
+<script>
+  emailjs.init("r-E6Bb0BR6UOFLDbb");
+  const SERVICE_ID = "service_6qyisv8";
+  const TEMPLATE_ID = "template_1bls7qs";
 
-    const SERVICE_ID = "service_6qyisv8";
-    const TEMPLATE_ID = "template_1bls7qs";
+  const elTemplateSel = document.getElementById("templateSel");
+  const elDynamicFields = document.getElementById("dynamicFields");
+  const elPreview = document.getElementById("preview");
+  const warnBox = document.getElementById("warnBox");
+  const btnSend = document.getElementById("btnSend");
+  const btnReload = document.getElementById("btnReload");
 
-    // ===== DOM =====
-    const elTemplateSel = document.getElementById("templateSel");
-    const elPreview = document.getElementById("preview");
-    const elDynamicFields = document.getElementById("dynamicFields");
-    const warnBox = document.getElementById("warnBox");
+  let catalog = [];
+  let templates = [];
+  let inputs = {};
 
-    const btnSend = document.getElementById("btnSend");
-    const btnReload = document.getElementById("btnReload");
+  function showWarn(msg){ warnBox.style.display="block"; warnBox.textContent=msg; }
+  function clearWarn(){ warnBox.style.display="none"; warnBox.textContent=""; }
+  function cacheBusted(url){ const u=new URL(url, location.origin); u.searchParams.set("_", Date.now()); return u.toString(); }
 
-    // ===== State =====
-    let templates = [];
-    let fieldDefs = [];
-    let inputs = {}; // key -> input element
+  async function loadAll(){
+    catalog = await fetch(cacheBusted("/api/fields")).then(r=>r.json());
+    templates = await fetch(cacheBusted("/api/templates")).then(r=>r.json());
+  }
 
-    function showWarn(msg){
-      warnBox.style.display = "block";
-      warnBox.textContent = msg;
+  function populateTemplates(){
+    elTemplateSel.innerHTML="";
+    if(!templates.length){
+      elTemplateSel.innerHTML = `<option value="">(템플릿 없음)</option>`;
+      showWarn("템플릿이 없습니다. 운영자에게 템플릿 추가를 요청하세요.");
+      return;
     }
-    function clearWarn(){
-      warnBox.style.display = "none";
-      warnBox.textContent = "";
-    }
+    clearWarn();
+    elTemplateSel.innerHTML = templates.map(t=>`<option value="${t.id}">${escapeHtml(t.name||"(이름 없음)")}</option>`).join("");
+    elTemplateSel.value = templates[0].id;
+  }
 
-    function cacheBusted(url){
-      const u = new URL(url, window.location.origin);
-      u.searchParams.set("_", Date.now().toString());
-      return u.toString();
-    }
+  function escapeHtml(str){
+    return String(str||"").replace(/[&<>"']/g, m => ({
+      "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"
+    }[m]));
+  }
 
-    async function loadFields(){
-      const res = await fetch(cacheBusted("/api/fields"));
-      if (!res.ok) throw new Error("fields load failed: " + res.status);
-      fieldDefs = await res.json();
-    }
+  function getTpl(){
+    return templates.find(t=>t.id===elTemplateSel.value) || null;
+  }
 
-    async function loadTemplates(){
-      const res = await fetch(cacheBusted("/api/templates"));
-      if (!res.ok) throw new Error("templates load failed: " + res.status);
-      templates = await res.json();
-    }
+  function buildFormForTemplate(tpl){
+    elDynamicFields.innerHTML="";
+    inputs = {};
 
-    function populateTemplates(){
-      elTemplateSel.innerHTML = "";
+    if(!tpl) return;
 
-      if (!templates.length){
-        elTemplateSel.innerHTML = `<option value="">(템플릿 없음)</option>`;
-        elTemplateSel.value = "";
-        showWarn("템플릿이 없습니다. /admin.html에서 템플릿을 추가하고 배경 이미지를 업로드한 뒤 다시 시도하세요.");
-        return;
-      }
-
+    const enabled = Array.isArray(tpl.enabledFields) ? tpl.enabledFields : [];
+    if(!enabled.length){
+      showWarn("이 템플릿에는 입력 항목이 선택되어 있지 않아요. 운영자가 enabledFields를 체크해야 합니다.");
+    } else {
       clearWarn();
-      elTemplateSel.innerHTML = templates.map(t => `<option value="${t.id}">${escapeHtml(t.name || "(이름 없음)")}</option>`).join("");
-      elTemplateSel.value = templates[0].id;
     }
 
-    function escapeHtml(str){
-      return String(str).replace(/[&<>"']/g, m => ({
-        "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"
-      }[m]));
+    const byKey = new Map((catalog||[]).map(f=>[f.key, f]));
+    enabled.forEach(key=>{
+      const def = byKey.get(key) || { key, label:key, type:"text", required:false, placeholder:"" };
+
+      const row = document.createElement("div");
+      row.className="row";
+
+      const lab = document.createElement("label");
+      lab.textContent = def.label || def.key;
+
+      const inp = document.createElement("input");
+      inp.type = def.type || "text";
+      inp.placeholder = def.placeholder || "";
+      inp.required = !!def.required;
+      inp.value = sample(def.key);
+
+      inp.addEventListener("input", renderPreview);
+
+      row.appendChild(lab);
+      row.appendChild(inp);
+      elDynamicFields.appendChild(row);
+
+      inputs[key] = inp;
+    });
+  }
+
+  function sample(key){
+    const s = {
+      name:"홍길동", title:"Sales Manager", company:"ACME Inc.",
+      mobile:"+82 10-1234-5678", office_phone:"02-123-4567", fax:"02-777-7777",
+      email:"hello@example.com", address:"서울시 ..."
+    };
+    return s[key] || "";
+  }
+
+  function renderPreview(){
+    const tpl = getTpl();
+    if(!tpl){
+      elPreview.style.backgroundImage="none";
+      elPreview.style.backgroundColor="#111827";
+      return;
     }
 
-    function getActiveTemplate(){
-      const id = elTemplateSel.value;
-      return templates.find(t => t.id === id) || null;
+    elPreview.style.width = (tpl.size?.w || 720) + "px";
+    elPreview.style.height = (tpl.size?.h || 400) + "px";
+    elPreview.style.borderRadius = "18px";
+    elPreview.style.border = "1px solid #e5e7eb";
+    elPreview.style.position = "relative";
+    elPreview.style.overflow = "hidden";
+    elPreview.style.boxShadow = "0 16px 40px rgba(0,0,0,0.16)";
+    elPreview.style.backgroundSize="cover";
+    elPreview.style.backgroundPosition="center";
+    if(tpl.backgroundUrl){
+      elPreview.style.backgroundImage = `url('${tpl.backgroundUrl}')`;
+      elPreview.style.backgroundColor="#111827";
+    } else {
+      elPreview.style.backgroundImage="none";
+      elPreview.style.backgroundColor="#111827";
     }
 
-    function buildForm(){
-      elDynamicFields.innerHTML = "";
-      inputs = {};
+    elPreview.querySelectorAll(".field").forEach(n=>n.remove());
 
-      fieldDefs
-        .slice()
-        .forEach(def => {
-          const row = document.createElement("div");
-          row.className = "row";
+    const values = {};
+    Object.keys(inputs).forEach(k => values[k] = inputs[k].value || "");
 
-          const lab = document.createElement("label");
-          lab.textContent = def.label || def.key;
-          lab.setAttribute("for", "inp_" + def.key);
+    const fieldMap = tpl.fields || {};
+    Object.entries(fieldMap).forEach(([key, spec])=>{
+      const div=document.createElement("div");
+      div.className="field";
+      div.textContent = values[key] ?? "";
 
-          const inp = document.createElement("input");
-          inp.id = "inp_" + def.key;
-          inp.placeholder = def.label || def.key;
-          inp.value = sampleValue(def.key);
-          inp.addEventListener("input", renderPreview);
+      div.style.left = Math.round(spec.x ?? 0) + "px";
+      div.style.top  = Math.round(spec.y ?? 0) + "px";
+      div.style.fontSize = Math.round(spec.fontSize ?? 18) + "px";
+      div.style.fontWeight = (spec.fontWeight ?? 400);
+      div.style.opacity = (spec.opacity ?? 1);
+      div.style.textAlign = spec.align || "left";
+      div.style.position="absolute";
+      div.style.whiteSpace="pre";
+      div.style.transformOrigin="left top";
+      div.style.userSelect="none";
+      div.style.color = spec.color || "#ffffff";
+      div.style.textShadow = spec.textShadow || "0 2px 10px rgba(0,0,0,0.25)";
 
-          row.appendChild(lab);
-          row.appendChild(inp);
-          elDynamicFields.appendChild(row);
+      elPreview.appendChild(div);
+    });
+  }
 
-          inputs[def.key] = inp;
-        });
-    }
+  async function makePreviewJpegDataUrl(maxWidth=720, quality=0.55){
+    const canvas = await html2canvas(document.querySelector("#preview"), {
+      scale: 1, useCORS: true, backgroundColor: null
+    });
+    const w=canvas.width, h=canvas.height;
+    const ratio=Math.min(1, maxWidth/w);
+    const out=document.createElement("canvas");
+    out.width=Math.round(w*ratio);
+    out.height=Math.round(h*ratio);
+    out.getContext("2d").drawImage(canvas,0,0,out.width,out.height);
+    return out.toDataURL("image/jpeg", quality);
+  }
 
-    function sampleValue(key){
-      const samples = {
-        name: "홍길동",
-        title: "Sales Manager",
-        company: "ACME Inc.",
-        phone: "+82 10-1234-5678",
-        email: "hello@example.com"
+  async function uploadPreviewToServer(dataUrl){
+    const res = await fetch("/api/upload-preview",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ dataUrl })
+    });
+    const json = await res.json().catch(()=>({}));
+    if(!res.ok) throw new Error(json?.error || ("Upload failed: "+res.status));
+    return new URL(json.url, window.location.origin).toString();
+  }
+
+  btnSend.addEventListener("click", async ()=>{
+    btnSend.disabled=true;
+    try{
+      const tpl=getTpl();
+      if(!tpl) throw new Error("템플릿 없음");
+      const previewDataUrl = await makePreviewJpegDataUrl(720, 0.55);
+      const previewUrl = await uploadPreviewToServer(previewDataUrl);
+
+      const payload = {
+        template_name: tpl.name || "",
+        preview_url: previewUrl
       };
-      return samples[key] || "";
-    }
+      Object.keys(inputs).forEach(k => payload["customer_"+k] = (inputs[k].value||"").trim());
 
-    function applyTemplateBackground(tpl){
-      // 배경 이미지가 있으면 그걸 우선 사용
-      if (tpl && tpl.backgroundUrl){
-        elPreview.style.backgroundImage = `url('${tpl.backgroundUrl}')`;
-        elPreview.style.backgroundColor = "#111827";
-      } else {
-        elPreview.style.backgroundImage = "none";
-        elPreview.style.backgroundColor = "#111827";
-      }
-    }
-
-    function renderPreview(){
-      const tpl = getActiveTemplate();
-      applyTemplateBackground(tpl);
-
-      // 기존 field 제거
-      elPreview.querySelectorAll(".field").forEach(n => n.remove());
-
-      if (!tpl) return;
-
-      const values = {};
-      Object.keys(inputs).forEach(k => values[k] = (inputs[k].value || ""));
-
-      const fieldMap = tpl.fields || {};
-      Object.entries(fieldMap).forEach(([key, spec]) => {
-        const div = document.createElement("div");
-        div.className = "field";
-        div.textContent = values[key] ?? "";
-
-        div.style.left = Math.round(spec.x ?? 0) + "px";
-        div.style.top  = Math.round(spec.y ?? 0) + "px";
-        div.style.fontSize = Math.round(spec.fontSize ?? 18) + "px";
-        div.style.fontWeight = (spec.fontWeight ?? 400);
-        div.style.opacity = (spec.opacity ?? 1);
-        div.style.letterSpacing = (spec.letterSpacing ?? 0) + "px";
-        div.style.textAlign = spec.align || "left";
-        if (spec.color) div.style.color = spec.color;
-        if (spec.textShadow) div.style.textShadow = spec.textShadow;
-
-        elPreview.appendChild(div);
-      });
-    }
-
-    async function makePreviewJpegDataUrl(maxWidth = 720, quality = 0.55) {
-      const canvas = await html2canvas(document.querySelector("#preview"), {
-        scale: 1,
-        useCORS: true,
-        backgroundColor: null
-      });
-
-      const w = canvas.width;
-      const h = canvas.height;
-      const ratio = Math.min(1, maxWidth / w);
-
-      const out = document.createElement("canvas");
-      out.width = Math.round(w * ratio);
-      out.height = Math.round(h * ratio);
-
-      const ctx = out.getContext("2d");
-      ctx.drawImage(canvas, 0, 0, out.width, out.height);
-
-      return out.toDataURL("image/jpeg", quality);
-    }
-
-    async function uploadPreviewToServer(dataUrl) {
-      const res = await fetch("/api/upload-preview", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dataUrl })
-      });
-      const json = await res.json().catch(()=>({}));
-      if (!res.ok) throw new Error(json?.error || ("Upload failed: " + res.status));
-      return new URL(json.url, window.location.origin).toString();
-    }
-
-    btnSend.addEventListener("click", async () => {
-      btnSend.disabled = true;
-      try {
-        const tpl = getActiveTemplate();
-        if (!tpl) throw new Error("템플릿이 없습니다.");
-
-        const previewDataUrl = await makePreviewJpegDataUrl(720, 0.55);
-        const previewUrl = await uploadPreviewToServer(previewDataUrl);
-
-        // payload는 기존 변수명 유지 + preview_url 추가
-        const payload = {
-          template_name: tpl.name || "",
-          preview_url: previewUrl
-        };
-        Object.keys(inputs).forEach(k => payload["customer_" + k] = (inputs[k].value || "").trim());
-
-        await emailjs.send(SERVICE_ID, TEMPLATE_ID, payload);
-        alert("전송 완료! 미리보기 URL 포함해서 보냈어요.");
-      } catch (e) {
-        console.error(e);
-        alert("전송 실패: " + (e?.message || String(e)));
-      } finally {
-        btnSend.disabled = false;
-      }
-    });
-
-    btnReload.addEventListener("click", async () => {
-      try{
-        await boot();
-        alert("템플릿 새로고침 완료!");
-      }catch(e){
-        alert("새로고침 실패: " + (e?.message || String(e)));
-      }
-    });
-
-    // 템플릿 변경 시 미리보기 다시 렌더
-    elTemplateSel.addEventListener("change", renderPreview);
-
-    async function boot(){
-      clearWarn();
-      await loadFields();
-      await loadTemplates();
-      populateTemplates();
-      buildForm();
-      renderPreview();
-    }
-
-    boot().catch(e => {
+      await emailjs.send(SERVICE_ID, TEMPLATE_ID, payload);
+      alert("전송 완료!");
+    } catch(e){
       console.error(e);
-      showWarn("초기 로딩 실패: " + (e?.message || String(e)));
-    });
-  </script>
+      alert("전송 실패: " + (e?.message || String(e)));
+    } finally {
+      btnSend.disabled=false;
+    }
+  });
+
+  btnReload.addEventListener("click", boot);
+  elTemplateSel.addEventListener("change", ()=>{
+    const tpl=getTpl();
+    buildFormForTemplate(tpl);
+    renderPreview();
+  });
+
+  async function boot(){
+    await loadAll();
+    populateTemplates();
+    const tpl=getTpl();
+    buildFormForTemplate(tpl);
+    renderPreview();
+  }
+
+  boot().catch(e=>{
+    console.error(e);
+    showWarn("로딩 실패: " + (e?.message || String(e)));
+  });
+</script>
 </body>
 </html>
