@@ -1,13 +1,22 @@
 <!doctype html>
 <html lang="ko">
-<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
-<script>
-  emailjs.init("r-E6Bb0BR6UOFLDbb");
-</script>
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Business Card App (MVP)</title>
+
+  <!-- EmailJS -->
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+  <script>
+    // EmailJS Public Key
+    emailjs.init("r-E6Bb0BR6UOFLDbb");
+  </script>
+
+  <!-- 캡처 라이브러리 -->
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <!-- PDF 라이브러리 -->
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+
   <style>
     :root{
       --bg:#f6f7fb;
@@ -46,13 +55,11 @@
       color:var(--muted);
       font-size:12px;
     }
-
     .grid{
       display:grid;
       grid-template-columns: 420px 1fr;
       gap:16px;
     }
-
     .panel{
       background:var(--card);
       border:1px solid var(--line);
@@ -64,7 +71,6 @@
       margin:0 0 10px;
       font-size:14px;
     }
-
     .row{display:flex; gap:10px; align-items:center; margin:10px 0;}
     label{font-size:12px; color:var(--muted); width:110px;}
     select,input{
@@ -77,7 +83,6 @@
       font-size:13px;
     }
     input:focus, select:focus{border-color:#bcd3ff; box-shadow:0 0 0 3px rgba(37,99,235,0.12)}
-
     .btns{
       display:flex;
       gap:10px;
@@ -105,7 +110,6 @@
       opacity:0.55;
       cursor:not-allowed;
     }
-
     .hint{
       margin-top:10px;
       font-size:12px;
@@ -113,13 +117,11 @@
       line-height:1.4;
     }
 
-    /* Preview */
     .previewWrap{
       display:flex;
       flex-direction:column;
       gap:12px;
     }
-
     .previewHeader{
       display:flex;
       align-items:center;
@@ -133,7 +135,7 @@
 
     /* 명함 실제 비율: 90x50mm => 1.8:1 */
     #preview{
-      width: 720px;              /* 화면용 크기 (캡처 시 scale로 고해상도 확보) */
+      width: 720px;
       aspect-ratio: 90 / 50;
       border-radius:18px;
       border:1px solid var(--line);
@@ -142,7 +144,6 @@
       overflow:hidden;
       box-shadow: 0 16px 40px rgba(0,0,0,0.16);
     }
-    /* fallback 배경 (이미지 없을 때) */
     #preview::before{
       content:"";
       position:absolute; inset:-40px;
@@ -154,7 +155,6 @@
       opacity:0.9;
       pointer-events:none;
     }
-
     .field{
       position:absolute;
       white-space:pre;
@@ -163,8 +163,6 @@
       text-shadow: 0 2px 10px rgba(0,0,0,0.25);
       user-select:none;
     }
-
-    /* 캡처할 때 버튼/가이드가 섞이지 않게: preview 안에는 출력 요소만 두기 */
     .cornerMark{
       position:absolute;
       inset:0;
@@ -173,44 +171,20 @@
       background:
         linear-gradient(#fff,#fff) left 16px top 16px / 24px 2px no-repeat,
         linear-gradient(#fff,#fff) left 16px top 16px / 2px 24px no-repeat,
-
         linear-gradient(#fff,#fff) right 16px top 16px / 24px 2px no-repeat,
         linear-gradient(#fff,#fff) right 16px top 16px / 2px 24px no-repeat,
-
         linear-gradient(#fff,#fff) left 16px bottom 16px / 24px 2px no-repeat,
         linear-gradient(#fff,#fff) left 16px bottom 16px / 2px 24px no-repeat,
-
         linear-gradient(#fff,#fff) right 16px bottom 16px / 24px 2px no-repeat,
         linear-gradient(#fff,#fff) right 16px bottom 16px / 2px 24px no-repeat;
     }
 
-    .toast{
-      position:fixed;
-      left:50%;
-      bottom:18px;
-      transform:translateX(-50%);
-      background:#111827;
-      color:#fff;
-      padding:10px 12px;
-      border-radius:999px;
-      font-size:12px;
-      box-shadow:0 12px 30px rgba(0,0,0,0.25);
-      opacity:0;
-      pointer-events:none;
-      transition:opacity .2s ease;
-    }
-    .toast.show{opacity:1;}
     @media (max-width: 980px){
       .grid{grid-template-columns:1fr}
       #preview{width:100%}
       label{width:95px}
     }
   </style>
-
-  <!-- 캡처 라이브러리 -->
-  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
-  <!-- PDF 라이브러리 -->
-  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 </head>
 
 <body>
@@ -218,9 +192,9 @@
     <header>
       <div>
         <h1>명함 주문 MVP</h1>
-        <p class="sub">템플릿 → JSON 좌표 배치 → 입력 즉시 반영 → 이제 “캡처 저장” 붙이기 ✨</p>
+        <p class="sub">템플릿 → JSON 좌표 배치 → 입력 즉시 반영 → “전송하기”로 메일 발송 ✨</p>
       </div>
-      <div class="badge">Client-side capture (no server render)</div>
+      <div class="badge">Client-side capture + EmailJS</div>
     </header>
 
     <div class="grid">
@@ -259,14 +233,13 @@
         </div>
 
         <div class="btns">
-           <button class="primary" id="btnSend">전송하기</button>
-
+          <button class="primary" id="btnSend">전송하기</button>
         </div>
 
         <div class="hint">
-          - PNG는 화면에 보이는 미리보기를 그대로 저장합니다.<br/>
-          - PDF는 <b>90×50mm</b>로 저장되며, 프린트/디자이너 확인용으로 딱 좋아요.<br/>
-          - 이미지 업로드가 없어도 fallback 배경으로 동작합니다.
+          - “전송하기”를 누르면 <b>ahsvic@naver.com</b>으로 주문 메일을 발송합니다.<br/>
+          - PDF는 <b>90×50mm</b>로 생성되어 Base64(dataURL) 형태로 템플릿 변수 <b>pdf_base64</b>로 전달됩니다.<br/>
+          - (EmailJS 플랜/설정에 따라 첨부가 제한될 수 있어, 우선 “메일 도착”부터 성공시키는 구조입니다.)
         </div>
       </section>
 
@@ -274,206 +247,184 @@
       <section class="previewWrap">
         <div class="previewHeader">
           <div class="badge">Preview (#preview)</div>
-          <div class="badge" id="sizeInfo">90×50mm</div>
+          <div class="badge">90×50mm</div>
         </div>
 
         <div id="preview" aria-label="business card preview">
           <div class="cornerMark" aria-hidden="true"></div>
-          <!-- fields injected here -->
         </div>
       </section>
     </div>
   </div>
 
-  <div class="toast" id="toast"></div>
-
-<script>
-  /***********************
-   * 1) 템플릿 & 렌더
-   ***********************/
-  const templates = [
-    {
-      id: "classic_dark",
-      name: "Classic Dark",
-      style: {},
-      fields: {
-        company:{ x: 50,  y: 76,  fontSize: 26, fontWeight: 600, opacity: 0.95, align:"left" },
-        name:   { x: 48,  y: 150, fontSize: 44, fontWeight: 700, letterSpacing: 0.2, align:"left" },
-        title:  { x: 50,  y: 208, fontSize: 22, fontWeight: 400, opacity: 0.9, align:"left" },
-        phone:  { x: 50,  y: 300, fontSize: 20, fontWeight: 400, opacity: 0.9, align:"left" },
-        email:  { x: 50,  y: 330, fontSize: 20, fontWeight: 400, opacity: 0.9, align:"left" },
+  <script>
+    /***********************
+     * 1) 템플릿 & 렌더
+     ***********************/
+    const templates = [
+      {
+        id: "classic_dark",
+        name: "Classic Dark",
+        style: {},
+        fields: {
+          company:{ x: 50,  y: 76,  fontSize: 26, fontWeight: 600, opacity: 0.95, align:"left" },
+          name:   { x: 48,  y: 150, fontSize: 44, fontWeight: 700, letterSpacing: 0.2, align:"left" },
+          title:  { x: 50,  y: 208, fontSize: 22, fontWeight: 400, opacity: 0.9, align:"left" },
+          phone:  { x: 50,  y: 300, fontSize: 20, fontWeight: 400, opacity: 0.9, align:"left" },
+          email:  { x: 50,  y: 330, fontSize: 20, fontWeight: 400, opacity: 0.9, align:"left" },
+        }
+      },
+      {
+        id: "minimal_light",
+        name: "Minimal Light",
+        style: { lightBg: true },
+        fields: {
+          company:{ x: 58,  y: 88,  fontSize: 26, fontWeight: 600, color:"#111827", textShadow:"none", align:"left" },
+          name:   { x: 56,  y: 170, fontSize: 44, fontWeight: 700, color:"#111827", textShadow:"none", align:"left" },
+          title:  { x: 58,  y: 228, fontSize: 22, fontWeight: 400, color:"#374151", textShadow:"none", align:"left" },
+          phone:  { x: 58,  y: 304, fontSize: 20, fontWeight: 400, color:"#374151", textShadow:"none", align:"left" },
+          email:  { x: 58,  y: 334, fontSize: 20, fontWeight: 400, color:"#374151", textShadow:"none", align:"left" },
+        }
       }
-    },
-    {
-      id: "minimal_light",
-      name: "Minimal Light",
-      style: { lightBg: true },
-      fields: {
-        company:{ x: 58,  y: 88,  fontSize: 26, fontWeight: 600, color:"#111827", textShadow:"none", align:"left" },
-        name:   { x: 56,  y: 170, fontSize: 44, fontWeight: 700, color:"#111827", textShadow:"none", align:"left" },
-        title:  { x: 58,  y: 228, fontSize: 22, fontWeight: 400, color:"#374151", textShadow:"none", align:"left" },
-        phone:  { x: 58,  y: 304, fontSize: 20, fontWeight: 400, color:"#374151", textShadow:"none", align:"left" },
-        email:  { x: 58,  y: 334, fontSize: 20, fontWeight: 400, color:"#374151", textShadow:"none", align:"left" },
-      }
-    }
-  ];
+    ];
 
-  const elTemplateSel = document.getElementById("templateSel");
-  const elPreview = document.getElementById("preview");
+    const elTemplateSel = document.getElementById("templateSel");
+    const elPreview = document.getElementById("preview");
 
-  const inputs = {
-    name: document.getElementById("nameInput"),
-    title: document.getElementById("titleInput"),
-    company: document.getElementById("companyInput"),
-    phone: document.getElementById("phoneInput"),
-    email: document.getElementById("emailInput"),
-  };
-
-  function populateTemplates(){
-    elTemplateSel.innerHTML = templates.map(t => `<option value="${t.id}">${t.name}</option>`).join("");
-    elTemplateSel.value = templates[0].id;
-  }
-
-  function getActiveTemplate(){
-    return templates.find(t => t.id === elTemplateSel.value) || templates[0];
-  }
-
-  function applyTemplateStyle(tpl){
-    if (tpl.style && tpl.style.lightBg){
-      elPreview.style.background = "linear-gradient(135deg, #ffffff, #f3f4f6)";
-      elPreview.style.boxShadow = "0 16px 40px rgba(0,0,0,0.10)";
-    } else {
-      elPreview.style.background = "linear-gradient(135deg, #0b1220, #111827)";
-      elPreview.style.boxShadow = "0 16px 40px rgba(0,0,0,0.16)";
-    }
-  }
-
-  function renderPreview(){
-    const tpl = getActiveTemplate();
-    applyTemplateStyle(tpl);
-
-    elPreview.querySelectorAll(".field").forEach(n => n.remove());
-
-    const values = {
-      name: inputs.name.value || "",
-      title: inputs.title.value || "",
-      company: inputs.company.value || "",
-      phone: inputs.phone.value || "",
-      email: inputs.email.value || ""
+    const inputs = {
+      name: document.getElementById("nameInput"),
+      title: document.getElementById("titleInput"),
+      company: document.getElementById("companyInput"),
+      phone: document.getElementById("phoneInput"),
+      email: document.getElementById("emailInput"),
     };
 
-    Object.entries(tpl.fields).forEach(([key, spec]) => {
-      const div = document.createElement("div");
-      div.className = "field";
-      div.dataset.key = key;
-      div.textContent = values[key] ?? "";
+    function populateTemplates(){
+      elTemplateSel.innerHTML = templates.map(t => `<option value="${t.id}">${t.name}</option>`).join("");
+      elTemplateSel.value = templates[0].id;
+    }
 
-      // 흐릿함 방지: 정수로 스냅
-      div.style.left = Math.round(spec.x ?? 0) + "px";
-      div.style.top  = Math.round(spec.y ?? 0) + "px";
-      div.style.fontSize = Math.round(spec.fontSize ?? 18) + "px";
+    function getActiveTemplate(){
+      return templates.find(t => t.id === elTemplateSel.value) || templates[0];
+    }
 
-      div.style.fontWeight = (spec.fontWeight ?? 400);
-      div.style.opacity = (spec.opacity ?? 1);
-      div.style.letterSpacing = (spec.letterSpacing ?? 0) + "px";
-      div.style.textAlign = spec.align || "left";
-      if (spec.color) div.style.color = spec.color;
-      if (spec.textShadow) div.style.textShadow = spec.textShadow;
+    function applyTemplateStyle(tpl){
+      if (tpl.style && tpl.style.lightBg){
+        elPreview.style.background = "linear-gradient(135deg, #ffffff, #f3f4f6)";
+        elPreview.style.boxShadow = "0 16px 40px rgba(0,0,0,0.10)";
+      } else {
+        elPreview.style.background = "linear-gradient(135deg, #0b1220, #111827)";
+        elPreview.style.boxShadow = "0 16px 40px rgba(0,0,0,0.16)";
+      }
+    }
 
-      elPreview.appendChild(div);
+    function renderPreview(){
+      const tpl = getActiveTemplate();
+      applyTemplateStyle(tpl);
+
+      elPreview.querySelectorAll(".field").forEach(n => n.remove());
+
+      const values = {
+        name: inputs.name.value || "",
+        title: inputs.title.value || "",
+        company: inputs.company.value || "",
+        phone: inputs.phone.value || "",
+        email: inputs.email.value || ""
+      };
+
+      Object.entries(tpl.fields).forEach(([key, spec]) => {
+        const div = document.createElement("div");
+        div.className = "field";
+        div.textContent = values[key] ?? "";
+
+        // 흐릿함 방지: 정수로 스냅
+        div.style.left = Math.round(spec.x ?? 0) + "px";
+        div.style.top  = Math.round(spec.y ?? 0) + "px";
+        div.style.fontSize = Math.round(spec.fontSize ?? 18) + "px";
+
+        div.style.fontWeight = (spec.fontWeight ?? 400);
+        div.style.opacity = (spec.opacity ?? 1);
+        div.style.letterSpacing = (spec.letterSpacing ?? 0) + "px";
+        div.style.textAlign = spec.align || "left";
+        if (spec.color) div.style.color = spec.color;
+        if (spec.textShadow) div.style.textShadow = spec.textShadow;
+
+        elPreview.appendChild(div);
+      });
+    }
+
+    /***********************
+     * 2) 전송 (EmailJS)
+     ***********************/
+    const btnSend = document.getElementById("btnSend");
+
+    function blobToBase64(blob) {
+      return new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(r.result); // data:application/pdf;base64,...
+        r.onerror = reject;
+        r.readAsDataURL(blob);
+      });
+    }
+
+    async function makePdfBlobFromPreview() {
+      const canvas = await html2canvas(document.querySelector("#preview"), {
+        scale: 3,
+        useCORS: true
+      });
+
+      const imgData = canvas.toDataURL("image/png");
+      const { jsPDF } = window.jspdf;
+
+      const pdf = new jsPDF({
+        orientation: "landscape",
+        unit: "mm",
+        format: [90, 50]
+      });
+
+      pdf.addImage(imgData, "PNG", 0, 0, 90, 50);
+      return pdf.output("blob");
+    }
+
+    btnSend.addEventListener("click", async () => {
+      btnSend.disabled = true;
+
+      try {
+        const pdfBlob = await makePdfBlobFromPreview();
+        const pdfDataUrl = await blobToBase64(pdfBlob);
+
+        // EmailJS 템플릿 변수들
+        const payload = {
+          customer_name: inputs.name.value.trim(),
+          customer_title: inputs.title.value.trim(),
+          customer_company: inputs.company.value.trim(),
+          customer_phone: inputs.phone.value.trim(),
+          customer_email: inputs.email.value.trim(),
+          pdf_base64: pdfDataUrl
+        };
+
+        // ✅ 네 EmailJS 값
+        const SERVICE_ID = "service_6gyisv8";
+        const TEMPLATE_ID = "template_1bls7qs";
+
+        await emailjs.send(SERVICE_ID, TEMPLATE_ID, payload);
+
+        alert("전송 완료! ahsvic@naver.com 으로 메일을 보냈어요.");
+      } catch (e) {
+        console.error(e);
+        alert("전송 실패: " + (e?.text || e?.message || String(e)));
+      } finally {
+        btnSend.disabled = false;
+      }
     });
-  }
 
-  /***********************
-   * 2) 전송 (고정 이메일로 PDF 전송)
-   ***********************/
-  const btnSend = document.getElementById("btnSend");
-
-  async function makePdfBlobFromPreview() {
-    const canvas = await html2canvas(elPreview, { scale: 3, useCORS: true });
-    const imgData = canvas.toDataURL("image/png");
-    const { jsPDF } = window.jspdf;
-
-    const pdf = new jsPDF({
-      orientation: "landscape",
-      unit: "mm",
-      format: [90, 50]
-    });
-
-    pdf.addImage(imgData, "PNG", 0, 0, 90, 50);
-    return pdf.output("blob");
-  }
-
-  const btnSend = document.getElementById("btnSend");
-
-function blobToBase64(blob) {
-  return new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => resolve(r.result);
-    r.onerror = reject;
-    r.readAsDataURL(blob);
-  });
-}
-
-async function makePdfBlobFromPreview() {
-  const canvas = await html2canvas(document.querySelector("#preview"), {
-    scale: 3,
-    useCORS: true
-  });
-
-  const imgData = canvas.toDataURL("image/png");
-  const { jsPDF } = window.jspdf;
-
-  const pdf = new jsPDF({
-    orientation: "landscape",
-    unit: "mm",
-    format: [90, 50]
-  });
-
-  pdf.addImage(imgData, "PNG", 0, 0, 90, 50);
-  return pdf.output("blob");
-}
-
-btnSend.addEventListener("click", async () => {
-  btnSend.disabled = true;
-
-  try {
-    const pdfBlob = await makePdfBlobFromPreview();
-    const pdfDataUrl = await blobToBase64(pdfBlob);
-
-    const payload = {
-      customer_name: inputs.name.value.trim(),
-      customer_title: inputs.title.value.trim(),
-      customer_company: inputs.company.value.trim(),
-      customer_phone: inputs.phone.value.trim(),
-      customer_email: inputs.email.value.trim(),
-      pdf_base64: pdfDataUrl
-    };
-
-    // 🔴 여기 2줄이 “교체 대상”
-    const SERVICE_ID = "service_6gyisv8";
-    const TEMPLATE_ID = "template_1bls7qs";
-
-    await emailjs.send(SERVICE_ID, TEMPLATE_ID, payload);
-
-    alert("전송 완료! ahsvic@naver.com 으로 메일을 보냈어요.");
-  } catch (e) {
-    console.error(e);
-    alert("전송 실패: " + (e?.text || e?.message || String(e)));
-  } finally {
-    btnSend.disabled = false;
-  }
-});
-
-
-  /***********************
-   * 초기화
-   ***********************/
-  populateTemplates();
-  renderPreview();
-  elTemplateSel.addEventListener("change", renderPreview);
-  Object.values(inputs).forEach(inp => inp.addEventListener("input", renderPreview));
-</script>
-
+    /***********************
+     * 초기화
+     ***********************/
+    populateTemplates();
+    renderPreview();
+    elTemplateSel.addEventListener("change", renderPreview);
+    Object.values(inputs).forEach(inp => inp.addEventListener("input", renderPreview));
+  </script>
 </body>
 </html>
