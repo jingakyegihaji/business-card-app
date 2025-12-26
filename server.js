@@ -12,6 +12,16 @@ const upload = multer({
 
 app.use(express.static(path.join(__dirname, "public")));
 app.get("/health", (_, res) => res.json({ ok: true }));
+app.get("/api/routes", (req, res) => {
+  const routes = [];
+  app._router.stack.forEach((m) => {
+    if (m.route && m.route.path) {
+      const methods = Object.keys(m.route.methods).join(",").toUpperCase();
+      routes.push(`${methods} ${m.route.path}`);
+    }
+  });
+  res.json({ ok: true, routes });
+});
 
 /**
  * ✅ Resend 연결 테스트 (첨부 없이 메일만)
