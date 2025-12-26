@@ -1,129 +1,59 @@
-console.log("BOOT MARKER 2025-12-26 A");
-console.log("BOOT: server.js is running");
-console.log(
-  "RESEND_KEY_PRESENT:",
-  Boolean(process.env.RESEND_API_KEY),
-  "LEN:",
-  process.env.RESEND_API_KEY ? process.env.RESEND_API_KEY.length : 0,
-  "PREFIX:",
-  process.env.RESEND_API_KEY ? process.env.RESEND_API_KEY.slice(0, 4) : "NONE"
-);
-
-console.log("BOOT: routes include /api/test-email");
 const express = require("express");
 const path = require("path");
-const multer = require("multer");
+const fs = require("fs");
+const crypto = require("crypto");
 
 const app = express();
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 } // 10MB
-});
 
-app.use(express.static(path.join(__dirname, "public")));
-app.get("/health", (_, res) => res.json({ ok: true }));
-app.get("/api/routes", (req, res) => {
-  const routes = [];
-  app._router.stack.forEach((m) => {
-    if (m.route && m.route.path) {
-      const methods = Object.keys(m.route.methods).join(",").toUpperCase();
-      routes.push(`${methods} ${m.route.path}`);
-    }
-  });
-  res.json({ ok: true, routes });
-});
+// dataURL 크기 대비 넉넉히
+app.use(express.json({ limit: "15mb" }));
 
-/**
- * ✅ Resend 연결 테스트 (첨부 없이 메일만)
- * 브라우저에서: https://<너서비스주소>/api/test-email
- */
-app.get("/api/test-email", async (req, res) => {
+const PUBLIC_DIR = path.join(__dirname, "public");
+const UPLOAD_DIR = path.join(PUBLIC_DIR, "uploads");
+fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+
+// 정적 파일 서빙 (public/index.html 포함)
+app.use(express.static(PUBLIC_DIR, { etag: false }));
+
+// 업로드 API: dataURL 받아서 /public/uploads에 저장 후 URL 반환
+app.post("/api/upload-preview", (req, res) => {
   try {
-    const required = ["RESEND_API_KEY", "MAIL_FROM", "ADMIN_EMAIL"];
-    const missing = required.filter(k => !process.env[k]);
-    if (missing.length) {
-      return res.status(500).json({ ok: false, error: "Missing env: " + missing.join(", ") });
+    const { dataUrl } = req.body || {};
+    if (!dataUrl || typeof dataUrl !== "string") {
+      return res.status(400).json({ error: "dataUrl is required" });
     }
 
-    const resp = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        from: process.env.MAIL_FROM,
-        to: [process.env.ADMIN_EMAIL],
-        subject: "Resend 테스트 메일",
-        text: "이 메일이 오면 Resend API 연동은 정상입니다."
-      })
-    });
-
-    const data = await resp.json().catch(() => ({}));
-    if (!resp.ok) {
-      return res.status(500).json({
-        ok: false,
-        error: data?.message || data?.error || JSON.stringify(data)
-      });
+    const m = dataUrl.match(/^data:(image\/jpeg|image\/png);base64,(.+)$/);
+    if (!m) {
+      return res.status(400).json({ error: "Invalid dataUrl format" });
     }
 
-    return res.json({ ok: true, data });
+    const mime = m[1];
+    const b64 = m[2];
+    const ext = mime === "image/png" ? "png" : "jpg";
+
+    const fileName = `card_${Date.now()}_${crypto.randomUUID()}.${ext}`;
+    const filePath = path.join(UPLOAD_DIR, fileName);
+
+    const buf = Buffer.from(b64, "base64");
+    if (buf.length < 2000) {
+      return res.status(400).json({ error: "Image buffer too small (capture failed?)" });
+    }
+
+    fs.writeFileSync(filePath, buf);
+
+    // 브라우저/메일에서 접근할 경로
+    res.json({ url: `/uploads/${fileName}` });
   } catch (e) {
-    console.error("TEST EMAIL FAIL:", e);
-    return res.status(500).json({ ok: false, error: e?.message || String(e) });
+    console.error(e);
+    res.status(500).json({ error: e?.message || String(e) });
   }
 });
 
-/**
- * ✅ 실제 전송: 브라우저에서 PDF 업로드 받아서 고정 이메일로 전송
- */
-app.post("/api/save", upload.single("pdf"), async (req, res) => {
-  try {
-    if (!req.file) return res.status(400).json({ ok: false, error: "pdf missing" });
-
-    const required = ["RESEND_API_KEY", "MAIL_FROM", "ADMIN_EMAIL"];
-    const missing = required.filter(k => !process.env[k]);
-    if (missing.length) {
-      return res.status(500).json({ ok: false, error: "Missing env: " + missing.join(", ") });
-    }
-
-    const base64 = req.file.buffer.toString("base64");
-
-    const resp = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        from: process.env.MAIL_FROM,
-        to: [process.env.ADMIN_EMAIL],
-        subject: "명함 저장 요청 (PDF)",
-        text: "브라우저에서 생성된 명함 PDF입니다.",
-        attachments: [
-          {
-            filename: req.file.originalname || "business_card.pdf",
-            content: base64
-          }
-        ]
-      })
-    });
-
-    const data = await resp.json().catch(() => ({}));
-    if (!resp.ok) {
-      return res.status(500).json({
-        ok: false,
-        error: data?.message || data?.error || JSON.stringify(data) || "Resend API failed"
-      });
-    }
-
-    return res.json({ ok: true, data });
-  } catch (e) {
-    console.error("SAVE FAIL:", e);
-    return res.status(500).json({ ok: false, error: e?.message || String(e) });
-  }
+// SPA라면 라우팅 fallback (필요 없으면 지워도 됨)
+app.get("*", (req, res) => {
+  res.sendFile(path.join(PUBLIC_DIR, "index.html"));
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log("BOOT MARKER 2025-12-26 B - Server running on", PORT));
-
+const port = process.env.PORT || 3000;
+app.listen(port, () => console.log("Server running on port", port));
