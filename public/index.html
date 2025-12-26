@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Business Card App (MVP)</title>
+  <title>명함 주문 MVP</title>
 
   <!-- EmailJS -->
   <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
@@ -31,7 +31,12 @@
     button.primary{background:var(--accent);border-color:var(--accent);color:#fff;}
     button:active{transform:translateY(1px)}
     button:disabled{opacity:0.55;cursor:not-allowed;}
-    .hint{margin-top:10px;font-size:12px;color:var(--muted);line-height:1.4;}
+    .hint{margin-top:10px;font-size:12px;color:var(--muted);line-height:1.45;}
+    .toast{
+      display:none;margin-top:10px;padding:10px 12px;border-radius:12px;
+      border:1px dashed #c7d2fe;background:#eef2ff;color:#1f2937;font-size:12px;line-height:1.4;
+      white-space:pre-wrap;
+    }
 
     .previewWrap{display:flex;flex-direction:column;gap:12px;}
     .previewHeader{display:flex;align-items:center;justify-content:space-between;gap:10px;}
@@ -63,18 +68,6 @@
         linear-gradient(#fff,#fff) right 16px bottom 16px / 24px 2px no-repeat,
         linear-gradient(#fff,#fff) right 16px bottom 16px / 2px 24px no-repeat;
     }
-    .toast{
-      display:none;
-      margin-top:10px;
-      padding:10px 12px;
-      border-radius:12px;
-      border:1px dashed #c7d2fe;
-      background:#eef2ff;
-      color:#1f2937;
-      font-size:12px;
-      line-height:1.4;
-      white-space:pre-wrap;
-    }
 
     @media (max-width: 980px){
       .grid{grid-template-columns:1fr}
@@ -89,9 +82,9 @@
     <header>
       <div>
         <h1>명함 주문 MVP</h1>
-        <p class="sub">템플릿 → 좌표 배치 → 입력 즉시 반영 → 전송하기(메일 + 이미지)</p>
+        <p class="sub">템플릿 → 좌표 배치 → 입력 즉시 반영 → 전송하기(메일 + 미리보기 URL)</p>
       </div>
-      <div class="badge">EmailJS + html2canvas</div>
+      <div class="badge">EmailJS + html2canvas + Render Upload</div>
     </header>
 
     <div class="grid">
@@ -133,8 +126,9 @@
         </div>
 
         <div class="hint">
-          - 전송 시 미리보기 이미지를 캡쳐해 EmailJS 템플릿 변수(<b>card_image</b>)로 전송합니다.<br/>
-          - EmailJS 템플릿에서 Attachments에 <b>Variable Attachment: card_image</b>를 만들어야 첨부/본문 표시가 됩니다.
+          - 전송 시 미리보기를 캡쳐하여 서버(<code>/uploads</code>)에 저장하고, 공개 URL을 EmailJS로 전송합니다.<br/>
+          - EmailJS 템플릿에서 <b>{{preview_url}}</b> 변수를 사용해 이미지를 표시하세요.<br/>
+          - Render는 재배포/재시작 시 업로드가 날아갈 수 있습니다(확인용 MVP면 OK).
         </div>
 
         <div id="debug" class="toast"></div>
@@ -154,7 +148,7 @@
   </div>
 
   <script>
-    // ====== 0) 안전장치: 에러를 화면에 보여주기 ======
+    // ====== 디버그 박스 ======
     const debugEl = document.getElementById("debug");
     function debug(msg){
       debugEl.style.display = "block";
@@ -164,14 +158,14 @@
       debug("[JS Error] " + (e?.message || e));
     });
 
-    // ====== 1) EmailJS init (반드시 public key 맞게) ======
+    // ====== EmailJS init ======
     try{
-      emailjs.init("r-E6Bb0BR6UOFLDbb"); // 너 Public Key
+      emailjs.init("r-E6Bb0BR6UOFLDbb"); // Public Key
     }catch(e){
       debug("EmailJS init 실패: " + (e?.message || e));
     }
 
-    // ====== 2) 템플릿 데이터 ======
+    // ====== 템플릿 ======
     const templates = [
       {
         id: "classic_dark",
@@ -182,144 +176,4 @@
           name:   { x: 48,  y: 150, fontSize: 44, fontWeight: 700, letterSpacing: 0.2, align:"left" },
           title:  { x: 50,  y: 208, fontSize: 22, fontWeight: 400, opacity: 0.9, align:"left" },
           phone:  { x: 50,  y: 300, fontSize: 20, fontWeight: 400, opacity: 0.9, align:"left" },
-          email:  { x: 50,  y: 330, fontSize: 20, fontWeight: 400, opacity: 0.9, align:"left" },
-        }
-      },
-      {
-        id: "minimal_light",
-        name: "Minimal Light",
-        style: { lightBg: true },
-        fields: {
-          company:{ x: 58,  y: 88,  fontSize: 26, fontWeight: 600, color:"#111827", textShadow:"none", align:"left" },
-          name:   { x: 56,  y: 170, fontSize: 44, fontWeight: 700, color:"#111827", textShadow:"none", align:"left" },
-          title:  { x: 58,  y: 228, fontSize: 22, fontWeight: 400, color:"#374151", textShadow:"none", align:"left" },
-          phone:  { x: 58,  y: 304, fontSize: 20, fontWeight: 400, color:"#374151", textShadow:"none", align:"left" },
-          email:  { x: 58,  y: 334, fontSize: 20, fontWeight: 400, color:"#374151", textShadow:"none", align:"left" },
-        }
-      }
-    ];
-
-    // ====== 3) DOM 참조 ======
-    const elTemplateSel = document.getElementById("templateSel");
-    const elPreview = document.getElementById("preview");
-
-    const inputs = {
-      name: document.getElementById("nameInput"),
-      title: document.getElementById("titleInput"),
-      company: document.getElementById("companyInput"),
-      phone: document.getElementById("phoneInput"),
-      email: document.getElementById("emailInput"),
-    };
-
-    function populateTemplates(){
-      elTemplateSel.innerHTML = templates.map(t => `<option value="${t.id}">${t.name}</option>`).join("");
-      elTemplateSel.value = templates[0].id;
-    }
-    function getActiveTemplate(){
-      return templates.find(t => t.id === elTemplateSel.value) || templates[0];
-    }
-    function applyTemplateStyle(tpl){
-      if (tpl.style && tpl.style.lightBg){
-        elPreview.style.background = "linear-gradient(135deg, #ffffff, #f3f4f6)";
-        elPreview.style.boxShadow = "0 16px 40px rgba(0,0,0,0.10)";
-      } else {
-        elPreview.style.background = "linear-gradient(135deg, #0b1220, #111827)";
-        elPreview.style.boxShadow = "0 16px 40px rgba(0,0,0,0.16)";
-      }
-    }
-    function renderPreview(){
-      const tpl = getActiveTemplate();
-      applyTemplateStyle(tpl);
-
-      elPreview.querySelectorAll(".field").forEach(n => n.remove());
-
-      const values = {
-        name: inputs.name.value || "",
-        title: inputs.title.value || "",
-        company: inputs.company.value || "",
-        phone: inputs.phone.value || "",
-        email: inputs.email.value || ""
-      };
-
-      Object.entries(tpl.fields).forEach(([key, spec]) => {
-        const div = document.createElement("div");
-        div.className = "field";
-        div.textContent = values[key] ?? "";
-        div.style.left = Math.round(spec.x ?? 0) + "px";
-        div.style.top  = Math.round(spec.y ?? 0) + "px";
-        div.style.fontSize = Math.round(spec.fontSize ?? 18) + "px";
-        div.style.fontWeight = (spec.fontWeight ?? 400);
-        div.style.opacity = (spec.opacity ?? 1);
-        div.style.letterSpacing = (spec.letterSpacing ?? 0) + "px";
-        div.style.textAlign = spec.align || "left";
-        div.style.color = spec.color || "#ffffff";
-        div.style.textShadow = (spec.textShadow !== undefined ? spec.textShadow : "0 2px 10px rgba(0,0,0,0.25)");
-        elPreview.appendChild(div);
-      });
-    }
-
-    // ====== 4) 캡쳐 → 용량 줄인 JPG dataURL ======
-    async function makePreviewJpegDataUrl(maxWidth = 720, quality = 0.55) {
-      const canvas = await html2canvas(document.querySelector("#preview"), {
-        scale: 1,
-        useCORS: true,
-        backgroundColor: null
-      });
-
-      const w = canvas.width;
-      const h = canvas.height;
-      const ratio = Math.min(1, maxWidth / w);
-
-      const out = document.createElement("canvas");
-      out.width = Math.round(w * ratio);
-      out.height = Math.round(h * ratio);
-
-      const ctx = out.getContext("2d");
-      ctx.drawImage(canvas, 0, 0, out.width, out.height);
-
-      return out.toDataURL("image/jpeg", quality);
-    }
-
-    // ====== 5) 전송 ======
-    const btnSend = document.getElementById("btnSend");
-    btnSend.addEventListener("click", async () => {
-      btnSend.disabled = true;
-
-      try {
-        const previewDataUrl = await makePreviewJpegDataUrl(720, 0.55);
-
-        const base64Only = previewDataUrl.split(",")[1];
-
-const payload = {
-  customer_name: inputs.name.value.trim(),
-  customer_title: inputs.title.value.trim(),
-  customer_company: inputs.company.value.trim(),
-  customer_phone: inputs.phone.value.trim(),
-  customer_email: inputs.email.value.trim(),
-  template_name: getActiveTemplate().name,
-
-  // CID attachment
-  card_image: base64Only
-};
-
-        const SERVICE_ID = "service_6qyisv8";
-        const TEMPLATE_ID = "template_1bls7qs";
-
-        await emailjs.send(SERVICE_ID, TEMPLATE_ID, payload);
-        alert("전송 완료! ahsvic@naver.com 으로 메일을 보냈어요.");
-      } catch (e) {
-        console.error(e);
-        alert("전송 실패: " + (e?.text || e?.message || String(e)));
-      } finally {
-        btnSend.disabled = false;
-      }
-    });
-
-    // ====== 6) 초기화 ======
-    populateTemplates();
-    renderPreview();
-    elTemplateSel.addEventListener("change", renderPreview);
-    Object.values(inputs).forEach(inp => inp.addEventListener("input", renderPreview));
-  </script>
-</body>
-</html>
+          email:  { x: 50,  y: 330,
