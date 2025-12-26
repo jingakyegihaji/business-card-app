@@ -1,127 +1,323 @@
-<script>
-  const templates = [ /* ... 너 기존 templates 그대로 ... */ ];
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Business Card App (MVP)</title>
 
-  const elTemplateSel = document.getElementById("templateSel");
-  const elPreview = document.getElementById("preview");
+  <!-- EmailJS -->
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 
-  const inputs = {
-    name: document.getElementById("nameInput"),
-    title: document.getElementById("titleInput"),
-    company: document.getElementById("companyInput"),
-    phone: document.getElementById("phoneInput"),
-    email: document.getElementById("emailInput"),
-  };
+  <!-- html2canvas -->
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 
-  function populateTemplates() {
-    elTemplateSel.innerHTML = templates.map(t => `<option value="${t.id}">${t.name}</option>`).join("");
-    elTemplateSel.value = templates[0].id;
-  }
-  function getActiveTemplate() {
-    return templates.find(t => t.id === elTemplateSel.value) || templates[0];
-  }
-  function applyTemplateStyle(tpl) {
-    if (tpl.style && tpl.style.lightBg) {
-      elPreview.style.background = "linear-gradient(135deg, #ffffff, #f3f4f6)";
-      elPreview.style.boxShadow = "0 16px 40px rgba(0,0,0,0.10)";
-    } else {
-      elPreview.style.background = "linear-gradient(135deg, #0b1220, #111827)";
-      elPreview.style.boxShadow = "0 16px 40px rgba(0,0,0,0.16)";
+  <style>
+    :root{--bg:#f6f7fb;--card:#ffffff;--text:#111827;--muted:#6b7280;--line:#e5e7eb;--accent:#2563eb;}
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Arial,"맑은 고딕",sans-serif;background:var(--bg);color:var(--text);}
+    .wrap{max-width:1200px;margin:18px auto;padding:18px;}
+    header{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:14px;}
+    h1{font-size:18px;margin:0;letter-spacing:-0.2px;}
+    .sub{margin:6px 0 0;color:var(--muted);font-size:12px;}
+    .grid{display:grid;grid-template-columns:420px 1fr;gap:16px;}
+    .panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;box-shadow:0 6px 18px rgba(0,0,0,0.06);}
+    .panel h2{margin:0 0 10px;font-size:14px;}
+    .row{display:flex;gap:10px;align-items:center;margin:10px 0;}
+    label{font-size:12px;color:var(--muted);width:110px;}
+    select,input{width:100%;border:1px solid var(--line);border-radius:10px;padding:10px;outline:none;background:#fff;font-size:13px;}
+    input:focus,select:focus{border-color:#bcd3ff;box-shadow:0 0 0 3px rgba(37,99,235,0.12)}
+    .btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;}
+    button{border:1px solid var(--line);background:#fff;padding:10px 12px;border-radius:12px;cursor:pointer;font-size:13px;display:inline-flex;align-items:center;gap:8px;}
+    button.primary{background:var(--accent);border-color:var(--accent);color:#fff;}
+    button:active{transform:translateY(1px)}
+    button:disabled{opacity:0.55;cursor:not-allowed;}
+    .hint{margin-top:10px;font-size:12px;color:var(--muted);line-height:1.4;}
+
+    .previewWrap{display:flex;flex-direction:column;gap:12px;}
+    .previewHeader{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+    .badge{font-size:12px;color:var(--muted);}
+
+    #preview{
+      width:720px;aspect-ratio:90/50;border-radius:18px;border:1px solid var(--line);
+      background:linear-gradient(135deg,#0b1220,#111827);
+      position:relative;overflow:hidden;box-shadow:0 16px 40px rgba(0,0,0,0.16);
     }
-  }
-  function renderPreview() {
-    const tpl = getActiveTemplate();
-    applyTemplateStyle(tpl);
+    #preview::before{
+      content:"";position:absolute;inset:-40px;
+      background:
+        radial-gradient(circle at 20% 30%, rgba(37,99,235,0.55), transparent 45%),
+        radial-gradient(circle at 70% 60%, rgba(16,185,129,0.38), transparent 46%),
+        radial-gradient(circle at 40% 80%, rgba(249,115,22,0.28), transparent 50%);
+      filter:blur(2px);opacity:0.9;pointer-events:none;
+    }
+    .field{position:absolute;white-space:pre;transform-origin:left top;color:#fff;text-shadow:0 2px 10px rgba(0,0,0,0.25);user-select:none;}
+    .cornerMark{
+      position:absolute;inset:0;pointer-events:none;opacity:0.16;
+      background:
+        linear-gradient(#fff,#fff) left 16px top 16px / 24px 2px no-repeat,
+        linear-gradient(#fff,#fff) left 16px top 16px / 2px 24px no-repeat,
+        linear-gradient(#fff,#fff) right 16px top 16px / 24px 2px no-repeat,
+        linear-gradient(#fff,#fff) right 16px top 16px / 2px 24px no-repeat,
+        linear-gradient(#fff,#fff) left 16px bottom 16px / 24px 2px no-repeat,
+        linear-gradient(#fff,#fff) left 16px bottom 16px / 2px 24px no-repeat,
+        linear-gradient(#fff,#fff) right 16px bottom 16px / 24px 2px no-repeat,
+        linear-gradient(#fff,#fff) right 16px bottom 16px / 2px 24px no-repeat;
+    }
+    .toast{
+      display:none;
+      margin-top:10px;
+      padding:10px 12px;
+      border-radius:12px;
+      border:1px dashed #c7d2fe;
+      background:#eef2ff;
+      color:#1f2937;
+      font-size:12px;
+      line-height:1.4;
+      white-space:pre-wrap;
+    }
 
-    elPreview.querySelectorAll(".field").forEach(n => n.remove());
+    @media (max-width: 980px){
+      .grid{grid-template-columns:1fr}
+      #preview{width:100%}
+      label{width:95px}
+    }
+  </style>
+</head>
 
-    const values = {
-      name: inputs.name.value || "",
-      title: inputs.title.value || "",
-      company: inputs.company.value || "",
-      phone: inputs.phone.value || "",
-      email: inputs.email.value || ""
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>명함 주문 MVP</h1>
+        <p class="sub">템플릿 → 좌표 배치 → 입력 즉시 반영 → 전송하기(메일 + 이미지)</p>
+      </div>
+      <div class="badge">EmailJS + html2canvas</div>
+    </header>
+
+    <div class="grid">
+      <section class="panel">
+        <h2>설정</h2>
+
+        <div class="row">
+          <label for="templateSel">템플릿</label>
+          <select id="templateSel"></select>
+        </div>
+
+        <div class="row">
+          <label for="nameInput">이름</label>
+          <input id="nameInput" value="홍길동"/>
+        </div>
+
+        <div class="row">
+          <label for="titleInput">직함</label>
+          <input id="titleInput" value="Sales Manager"/>
+        </div>
+
+        <div class="row">
+          <label for="companyInput">회사</label>
+          <input id="companyInput" value="ACME Inc."/>
+        </div>
+
+        <div class="row">
+          <label for="phoneInput">전화</label>
+          <input id="phoneInput" value="+82 10-1234-5678"/>
+        </div>
+
+        <div class="row">
+          <label for="emailInput">이메일</label>
+          <input id="emailInput" value="hello@example.com"/>
+        </div>
+
+        <div class="btns">
+          <button class="primary" id="btnSend">전송하기</button>
+        </div>
+
+        <div class="hint">
+          - 전송 시 미리보기 이미지를 캡쳐해 EmailJS 템플릿 변수(<b>card_image</b>)로 전송합니다.<br/>
+          - EmailJS 템플릿에서 Attachments에 <b>Variable Attachment: card_image</b>를 만들어야 첨부/본문 표시가 됩니다.
+        </div>
+
+        <div id="debug" class="toast"></div>
+      </section>
+
+      <section class="previewWrap">
+        <div class="previewHeader">
+          <div class="badge">Preview (#preview)</div>
+          <div class="badge">90×50mm</div>
+        </div>
+
+        <div id="preview">
+          <div class="cornerMark" aria-hidden="true"></div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    // ====== 0) 안전장치: 에러를 화면에 보여주기 ======
+    const debugEl = document.getElementById("debug");
+    function debug(msg){
+      debugEl.style.display = "block";
+      debugEl.textContent = String(msg);
+    }
+    window.addEventListener("error", (e) => {
+      debug("[JS Error] " + (e?.message || e));
+    });
+
+    // ====== 1) EmailJS init (반드시 public key 맞게) ======
+    try{
+      emailjs.init("r-E6Bb0BR6UOFLDbb"); // 너 Public Key
+    }catch(e){
+      debug("EmailJS init 실패: " + (e?.message || e));
+    }
+
+    // ====== 2) 템플릿 데이터 ======
+    const templates = [
+      {
+        id: "classic_dark",
+        name: "Classic Dark",
+        style: { lightBg: false },
+        fields: {
+          company:{ x: 50,  y: 76,  fontSize: 26, fontWeight: 600, opacity: 0.95, align:"left" },
+          name:   { x: 48,  y: 150, fontSize: 44, fontWeight: 700, letterSpacing: 0.2, align:"left" },
+          title:  { x: 50,  y: 208, fontSize: 22, fontWeight: 400, opacity: 0.9, align:"left" },
+          phone:  { x: 50,  y: 300, fontSize: 20, fontWeight: 400, opacity: 0.9, align:"left" },
+          email:  { x: 50,  y: 330, fontSize: 20, fontWeight: 400, opacity: 0.9, align:"left" },
+        }
+      },
+      {
+        id: "minimal_light",
+        name: "Minimal Light",
+        style: { lightBg: true },
+        fields: {
+          company:{ x: 58,  y: 88,  fontSize: 26, fontWeight: 600, color:"#111827", textShadow:"none", align:"left" },
+          name:   { x: 56,  y: 170, fontSize: 44, fontWeight: 700, color:"#111827", textShadow:"none", align:"left" },
+          title:  { x: 58,  y: 228, fontSize: 22, fontWeight: 400, color:"#374151", textShadow:"none", align:"left" },
+          phone:  { x: 58,  y: 304, fontSize: 20, fontWeight: 400, color:"#374151", textShadow:"none", align:"left" },
+          email:  { x: 58,  y: 334, fontSize: 20, fontWeight: 400, color:"#374151", textShadow:"none", align:"left" },
+        }
+      }
+    ];
+
+    // ====== 3) DOM 참조 ======
+    const elTemplateSel = document.getElementById("templateSel");
+    const elPreview = document.getElementById("preview");
+
+    const inputs = {
+      name: document.getElementById("nameInput"),
+      title: document.getElementById("titleInput"),
+      company: document.getElementById("companyInput"),
+      phone: document.getElementById("phoneInput"),
+      email: document.getElementById("emailInput"),
     };
 
-    Object.entries(tpl.fields).forEach(([key, spec]) => {
-      const div = document.createElement("div");
-      div.className = "field";
-      div.textContent = values[key] ?? "";
-      div.style.left = Math.round(spec.x ?? 0) + "px";
-      div.style.top  = Math.round(spec.y ?? 0) + "px";
-      div.style.fontSize = Math.round(spec.fontSize ?? 18) + "px";
-      div.style.fontWeight = (spec.fontWeight ?? 400);
-      div.style.opacity = (spec.opacity ?? 1);
-      div.style.letterSpacing = (spec.letterSpacing ?? 0) + "px";
-      div.style.textAlign = spec.align || "left";
-      if (spec.color) div.style.color = spec.color;
-      if (spec.textShadow) div.style.textShadow = spec.textShadow;
-      elPreview.appendChild(div);
-    });
-  }
+    function populateTemplates(){
+      elTemplateSel.innerHTML = templates.map(t => `<option value="${t.id}">${t.name}</option>`).join("");
+      elTemplateSel.value = templates[0].id;
+    }
+    function getActiveTemplate(){
+      return templates.find(t => t.id === elTemplateSel.value) || templates[0];
+    }
+    function applyTemplateStyle(tpl){
+      if (tpl.style && tpl.style.lightBg){
+        elPreview.style.background = "linear-gradient(135deg, #ffffff, #f3f4f6)";
+        elPreview.style.boxShadow = "0 16px 40px rgba(0,0,0,0.10)";
+      } else {
+        elPreview.style.background = "linear-gradient(135deg, #0b1220, #111827)";
+        elPreview.style.boxShadow = "0 16px 40px rgba(0,0,0,0.16)";
+      }
+    }
+    function renderPreview(){
+      const tpl = getActiveTemplate();
+      applyTemplateStyle(tpl);
 
-  // ✅ 미리보기 캡쳐 → 용량 줄인 JPG dataURL 만들기
-  async function makePreviewJpegDataUrl(maxWidth = 720, quality = 0.55) {
-    const canvas = await html2canvas(document.querySelector("#preview"), {
-      scale: 1,
-      useCORS: true,
-      backgroundColor: null
-    });
+      elPreview.querySelectorAll(".field").forEach(n => n.remove());
 
-    const w = canvas.width;
-    const h = canvas.height;
-    const ratio = Math.min(1, maxWidth / w);
-
-    const out = document.createElement("canvas");
-    out.width = Math.round(w * ratio);
-    out.height = Math.round(h * ratio);
-
-    const ctx = out.getContext("2d");
-    ctx.drawImage(canvas, 0, 0, out.width, out.height);
-
-    return out.toDataURL("image/jpeg", quality);
-  }
-
-  // ✅ 전송
-  const btnSend = document.getElementById("btnSend");
-  btnSend.addEventListener("click", async () => {
-    btnSend.disabled = true;
-
-    try {
-      // 1) 캡쳐 생성 (여기서 await 사용!)
-      const previewDataUrl = await makePreviewJpegDataUrl(720, 0.55);
-
-      // 2) EmailJS로 보낼 payload 구성
-      //    - 템플릿 Attachments 탭에서 Variable Attachment 만들고
-      //      Parameter Name을 "card_image"로 해두면,
-      //      이 값이 첨부 + cid 임베드에 쓰임
-      const payload = {
-        customer_name: inputs.name.value.trim(),
-        customer_title: inputs.title.value.trim(),
-        customer_company: inputs.company.value.trim(),
-        customer_phone: inputs.phone.value.trim(),
-        customer_email: inputs.email.value.trim(),
-        template_name: getActiveTemplate().name,
-
-        // ⭐️ 핵심: attachment 변수(이름이 Parameter Name과 동일해야 함)
-        card_image: previewDataUrl
+      const values = {
+        name: inputs.name.value || "",
+        title: inputs.title.value || "",
+        company: inputs.company.value || "",
+        phone: inputs.phone.value || "",
+        email: inputs.email.value || ""
       };
 
-      const SERVICE_ID = "service_6qyisv8";
-      const TEMPLATE_ID = "template_1bls7qs";
-
-      await emailjs.send(SERVICE_ID, TEMPLATE_ID, payload);
-      alert("전송 완료! ahsvic@naver.com 으로 메일을 보냈어요.");
-    } catch (e) {
-      console.error(e);
-      alert("전송 실패: " + (e?.text || e?.message || String(e)));
-    } finally {
-      btnSend.disabled = false;
+      Object.entries(tpl.fields).forEach(([key, spec]) => {
+        const div = document.createElement("div");
+        div.className = "field";
+        div.textContent = values[key] ?? "";
+        div.style.left = Math.round(spec.x ?? 0) + "px";
+        div.style.top  = Math.round(spec.y ?? 0) + "px";
+        div.style.fontSize = Math.round(spec.fontSize ?? 18) + "px";
+        div.style.fontWeight = (spec.fontWeight ?? 400);
+        div.style.opacity = (spec.opacity ?? 1);
+        div.style.letterSpacing = (spec.letterSpacing ?? 0) + "px";
+        div.style.textAlign = spec.align || "left";
+        div.style.color = spec.color || "#ffffff";
+        div.style.textShadow = (spec.textShadow !== undefined ? spec.textShadow : "0 2px 10px rgba(0,0,0,0.25)");
+        elPreview.appendChild(div);
+      });
     }
-  });
 
-  // 초기화
-  populateTemplates();
-  renderPreview();
-  elTemplateSel.addEventListener("change", renderPreview);
-  Object.values(inputs).forEach(inp => inp.addEventListener("input", renderPreview));
-</script>
+    // ====== 4) 캡쳐 → 용량 줄인 JPG dataURL ======
+    async function makePreviewJpegDataUrl(maxWidth = 720, quality = 0.55) {
+      const canvas = await html2canvas(document.querySelector("#preview"), {
+        scale: 1,
+        useCORS: true,
+        backgroundColor: null
+      });
+
+      const w = canvas.width;
+      const h = canvas.height;
+      const ratio = Math.min(1, maxWidth / w);
+
+      const out = document.createElement("canvas");
+      out.width = Math.round(w * ratio);
+      out.height = Math.round(h * ratio);
+
+      const ctx = out.getContext("2d");
+      ctx.drawImage(canvas, 0, 0, out.width, out.height);
+
+      return out.toDataURL("image/jpeg", quality);
+    }
+
+    // ====== 5) 전송 ======
+    const btnSend = document.getElementById("btnSend");
+    btnSend.addEventListener("click", async () => {
+      btnSend.disabled = true;
+
+      try {
+        const previewDataUrl = await makePreviewJpegDataUrl(720, 0.55);
+
+        const payload = {
+          customer_name: inputs.name.value.trim(),
+          customer_title: inputs.title.value.trim(),
+          customer_company: inputs.company.value.trim(),
+          customer_phone: inputs.phone.value.trim(),
+          customer_email: inputs.email.value.trim(),
+          template_name: getActiveTemplate().name,
+
+          // ⭐️ EmailJS 템플릿 Attachments에서 Variable Attachment 이름과 동일해야 함
+          card_image: previewDataUrl
+        };
+
+        const SERVICE_ID = "service_6qyisv8";
+        const TEMPLATE_ID = "template_1bls7qs";
+
+        await emailjs.send(SERVICE_ID, TEMPLATE_ID, payload);
+        alert("전송 완료! ahsvic@naver.com 으로 메일을 보냈어요.");
+      } catch (e) {
+        console.error(e);
+        alert("전송 실패: " + (e?.text || e?.message || String(e)));
+      } finally {
+        btnSend.disabled = false;
+      }
+    });
+
+    // ====== 6) 초기화 ======
+    populateTemplates();
+    renderPreview();
+    elTemplateSel.addEventListener("change", renderPreview);
+    Object.values(inputs).forEach(inp => inp.addEventListener("input", renderPreview));
+  </script>
+</body>
+</html>
