@@ -20,14 +20,13 @@
   .danger{color:#b91c1c}
   .hidden{display:none}
   .grid{display:grid;grid-template-columns:460px 1fr;gap:14px}
-  .gridTpl{display:grid;grid-template-columns:260px 1fr 320px;gap:14px}
+  .gridTpl{display:grid;grid-template-columns:260px 1fr 360px;gap:14px}
   .hr{height:1px;background:var(--line);margin:12px 0}
   .fieldRow{display:grid;grid-template-columns:1fr 1fr 110px 70px 38px;gap:8px;align-items:center;margin:8px 0}
   .fieldRow input,.fieldRow select{padding:8px 10px}
   .mini{padding:7px 10px;font-size:12px}
   .pill{display:inline-flex;gap:8px;align-items:center;padding:6px 10px;border:1px solid var(--line);border-radius:999px;font-size:12px;background:#fff}
 
-  /* ✅ 캔버스 “보이는 영역”을 스크롤 가능하게 */
   .canvasWrap{
     border:1px solid var(--line);
     border-radius:12px;
@@ -43,6 +42,16 @@
     border-radius:12px;
     background:#fff;
   }
+
+  .ctrlGrid{
+    display:grid;
+    grid-template-columns:120px 1fr;
+    gap:8px 10px;
+    align-items:center;
+    margin-top:8px;
+  }
+  .ctrlGrid label{font-size:12px;color:var(--muted)}
+  .ctrlGrid input,.ctrlGrid select{padding:8px 10px}
 </style>
 </head>
 <body>
@@ -74,8 +83,8 @@
       <div class="card">
         <h3>필드 카탈로그 (전체 후보군)</h3>
         <div class="muted">
-          - 여기서 “가능한 입력 항목”을 등록합니다. (예: mobile, fax, office_phone)<br/>
-          - 실제로 사용자 화면에 보일지는 <b>템플릿별로 선택(enabledFields)</b>됩니다.
+          - 여기서 “가능한 입력 항목”을 등록합니다.<br/>
+          - 실제 사용자 화면 입력박스는 <b>템플릿별 enabledFields</b>로 결정됩니다.
         </div>
         <div class="hr"></div>
         <div class="row">
@@ -89,17 +98,16 @@
 
       <!-- Template Editor -->
       <div class="card">
-        <h3>템플릿별 입력 항목 선택 + 위치 편집</h3>
+        <h3>템플릿별 입력 항목 선택 + 위치/스타일 편집</h3>
 
         <div class="row">
           <button class="primary" onclick="createTemplate()">+ 템플릿 추가</button>
           <select id="tplSel" onchange="onTplChange()" style="min-width:240px"></select>
 
-          <!-- ✅ 줌 컨트롤 -->
           <span class="pill">
             Zoom
             <select id="zoomSel" class="mini" onchange="setZoomFromUI()">
-              <option value="1"selected>1x</option>
+              <option value="1" selected>1x</option>
               <option value="2">2x</option>
               <option value="3">3x</option>
               <option value="4">4x</option>
@@ -125,31 +133,87 @@
             <div class="muted" style="margin-bottom:8px"><b>이 템플릿에서 사용할 입력 항목</b></div>
             <div id="enabledBox"></div>
             <div class="muted" style="margin-top:10px">
-              - 체크된 항목만 사용자 화면에 입력 박스로 보여요.<br/>
-              - 체크하면 캔버스에 기본 위치가 생성되고, 드래그로 이동 가능.
+              - 체크된 항목만 사용자 화면 입력 박스로 노출됩니다.
             </div>
           </div>
 
           <!-- canvas -->
           <div>
             <div class="canvasWrap" id="canvasWrap">
-              <!-- ✅ 여기 캔버스는 JS가 줌에 맞춰 실제 픽셀 크기를 바꿈 -->
               <canvas id="canvas"></canvas>
             </div>
             <div class="muted" style="margin-top:8px">
-              - 줌을 올려도 저장 좌표는 <b>720×400 기준</b>이라 사용자 화면이 망가지지 않습니다.
+              - 저장 좌표는 <b>720×400 기준</b>입니다.
             </div>
           </div>
 
-          <!-- selected info -->
+          <!-- selected style -->
           <div>
             <div class="muted"><b>선택 필드</b></div>
             <div id="selInfo" class="muted">선택 없음</div>
+
             <div class="hr"></div>
-            <div class="muted">
-              팁) 저장을 눌러야 사용자 화면(F5)에 반영돼요.
+
+            <div class="muted" style="margin-bottom:6px"><b>폰트/스타일</b></div>
+            <div class="ctrlGrid">
+              <label>Font</label>
+              <select id="stFont">
+                <option value='Arial, "맑은 고딕", sans-serif'>Arial/맑은고딕</option>
+                <option value='"맑은 고딕", sans-serif'>맑은 고딕</option>
+                <option value='"Noto Sans KR", sans-serif'>Noto Sans KR</option>
+                <option value='"Pretendard", sans-serif'>Pretendard</option>
+                <option value='"Nanum Gothic", sans-serif'>나눔고딕</option>
+                <option value='serif'>serif</option>
+                <option value='monospace'>monospace</option>
+              </select>
+
+              <label>Size</label>
+              <input id="stSize" type="number" min="8" max="120" step="1"/>
+
+              <label>Weight</label>
+              <select id="stWeight">
+                <option value="300">300</option>
+                <option value="400">400</option>
+                <option value="500">500</option>
+                <option value="600">600</option>
+                <option value="700">700</option>
+                <option value="800">800</option>
+              </select>
+
+              <label>Color</label>
+              <input id="stColor" type="color"/>
+
+              <label>Opacity</label>
+              <input id="stOpacity" type="number" min="0" max="1" step="0.05"/>
+
+              <label>Align</label>
+              <select id="stAlign">
+                <option value="left">left</option>
+                <option value="center">center</option>
+                <option value="right">right</option>
+              </select>
+
+              <label>Letter Spacing</label>
+              <input id="stLs" type="number" step="0.1"/>
+
+              <label>Shadow</label>
+              <select id="stShadow">
+                <option value="0 2px 10px rgba(0,0,0,0.25)">on</option>
+                <option value="none">none</option>
+              </select>
             </div>
-            <button class="mini" onclick="saveTemplate()">템플릿 저장</button>
+
+            <div class="hr"></div>
+
+            <div class="row">
+              <button class="mini" onclick="applyStyleFromUI()">적용</button>
+              <button class="mini" onclick="resetSelectedStyle()">선택 필드 기본값</button>
+              <button class="mini" onclick="saveTemplate()">템플릿 저장</button>
+            </div>
+
+            <div class="muted">
+              팁) 템플릿 저장을 눌러야 사용자 화면(F5)에 반영돼요.
+            </div>
           </div>
         </div>
 
@@ -208,11 +272,11 @@
   }
 
   // ===== Data =====
-  let catalog = [];      // fields.json
-  let templates = [];    // templates.json
+  let catalog = [];
+  let templates = [];
   let activeTpl = null;
 
-  // ===== Catalog UI =====
+  // ===== Catalog =====
   const catalogBox = document.getElementById("catalogBox");
 
   function renderCatalog(){
@@ -242,7 +306,6 @@
       del.onclick=()=>{
         const k=f.key;
         catalog.splice(idx,1);
-        // 템플릿에서도 제거
         templates.forEach(t=>{
           if(Array.isArray(t.enabledFields)) t.enabledFields = t.enabledFields.filter(x=>x!==k);
           if(t.fields && k && t.fields[k]) delete t.fields[k];
@@ -317,6 +380,7 @@
     loadBg();
     draw();
     updateSelInfo();
+    syncStyleUIFromSelected();
   }
 
   async function saveTemplate(){
@@ -364,8 +428,23 @@
     r.readAsDataURL(f);
   }
 
-  // ===== enabledFields UI =====
+  // ===== enabledFields =====
   const enabledBox=document.getElementById("enabledBox");
+
+  function defaultFieldStyle(){
+    return {
+      x: 60,
+      y: 80,
+      fontSize: 20,
+      fontWeight: 600,
+      color: "#ffffff",
+      opacity: 1,
+      align: "left",
+      letterSpacing: 0,
+      fontFamily: 'Arial, "맑은 고딕", sans-serif',
+      textShadow: "0 2px 10px rgba(0,0,0,0.25)"
+    };
+  }
 
   function renderEnabledBox(){
     enabledBox.innerHTML="";
@@ -386,20 +465,13 @@
         activeTpl.enabledFields = activeTpl.enabledFields || [];
         const s=new Set(activeTpl.enabledFields);
 
+        activeTpl.fields = activeTpl.fields || {};
         if(cb.checked){
           s.add(k);
-          activeTpl.fields = activeTpl.fields || {};
           if(!activeTpl.fields[k]){
-            activeTpl.fields[k] = {
-              x: 60,
-              y: 70 + Object.keys(activeTpl.fields).length*32,
-              fontSize: 20,
-              fontWeight: 600,
-              color: "#ffffff",
-              opacity: 1,
-              align: "left",
-              textShadow: "0 2px 10px rgba(0,0,0,0.25)"
-            };
+            const base = defaultFieldStyle();
+            base.y = 70 + Object.keys(activeTpl.fields).length * 32;
+            activeTpl.fields[k] = base;
           }
         } else {
           s.delete(k);
@@ -410,6 +482,7 @@
         activeTpl.enabledFields = Array.from(s);
         draw();
         updateSelInfo();
+        syncStyleUIFromSelected();
       };
 
       const text=document.createElement("div");
@@ -422,50 +495,37 @@
     });
   }
 
-  // ===== Canvas (✅ 줌 적용: 저장 좌표는 720×400 기준) =====
-  const LOGICAL_W = 720;
-  const LOGICAL_H = 400;
-
+  // ===== Canvas (logical 720x400 + zoom) =====
+  const LOGICAL_W = 720, LOGICAL_H = 400;
   const canvasWrap = document.getElementById("canvasWrap");
   const canvas=document.getElementById("canvas");
   const ctx=canvas.getContext("2d");
-
   const zoomSel = document.getElementById("zoomSel");
-  let zoom = Number(zoomSel.value || "1"); // 기본 1배
+  let zoom = Number(zoomSel.value || "1");
 
   let bgImg=null;
   let draggingKey=null, offX=0, offY=0;
   let selectedKey=null;
   const selInfo=document.getElementById("selInfo");
 
-  function setZoomFromUI(){
-    const z = Number(zoomSel.value || "1");
-    setZoom(z);
-  }
-
+  function setZoomFromUI(){ setZoom(Number(zoomSel.value || "1")); }
   function setZoom(z){
     zoom = Math.max(1, Math.min(6, z));
-    // ✅ 캔버스 실제 픽셀 크기를 줌만큼 키움
     canvas.width = LOGICAL_W * zoom;
     canvas.height = LOGICAL_H * zoom;
     draw();
-    // 보기 좋게 스크롤 위치 유지/조정
     centerCanvas();
   }
-
   function centerCanvas(){
-    // 중앙으로 스크롤
     const cx = (canvas.width - canvasWrap.clientWidth) / 2;
     const cy = (canvas.height - canvasWrap.clientHeight) / 2;
     canvasWrap.scrollLeft = Math.max(0, cx);
     canvasWrap.scrollTop = Math.max(0, cy);
   }
-
   function toLogicalCoords(clientX, clientY){
     const r = canvas.getBoundingClientRect();
     const px = (clientX - r.left) * (canvas.width / r.width);
     const py = (clientY - r.top) * (canvas.height / r.height);
-    // ✅ px,py는 "줌 적용된 픽셀" 좌표 -> 논리 좌표로 변환
     return { x: px / zoom, y: py / zoom };
   }
 
@@ -481,32 +541,26 @@
   }
 
   function draw(){
-    // ✅ 항상 논리 좌표계(720×400)로 그린 뒤, ctx를 zoom 스케일
     ctx.setTransform(1,0,0,1,0,0);
     ctx.clearRect(0,0,canvas.width,canvas.height);
 
     ctx.setTransform(zoom,0,0,zoom,0,0);
 
-    // background
     if(activeTpl && activeTpl.backgroundUrl){
       if(!bgImg) loadBg();
       if(bgImg) ctx.drawImage(bgImg, 0, 0, LOGICAL_W, LOGICAL_H);
-      else {
-        ctx.fillStyle="#111827";
-        ctx.fillRect(0,0,LOGICAL_W,LOGICAL_H);
-      }
+      else { ctx.fillStyle="#111827"; ctx.fillRect(0,0,LOGICAL_W,LOGICAL_H); }
     } else {
       ctx.fillStyle="#111827";
       ctx.fillRect(0,0,LOGICAL_W,LOGICAL_H);
     }
 
-    // overlay boxes
     if(!activeTpl || !activeTpl.fields) return;
     ctx.font="600 12px Arial";
 
     for(const [k,s] of Object.entries(activeTpl.fields)){
       const x=Number(s.x||0), y=Number(s.y||0);
-      const w=Math.min(260, ctx.measureText(k).width+16);
+      const w=Math.min(300, ctx.measureText(k).width+16);
       const h=22;
       const sel=(k===selectedKey);
 
@@ -520,12 +574,11 @@
   }
 
   function hit(mx,my){
-    // mx,my는 "논리 좌표"
     if(!activeTpl || !activeTpl.fields) return null;
     ctx.font="600 12px Arial";
     for(const [k,s] of Object.entries(activeTpl.fields)){
       const x=Number(s.x||0), y=Number(s.y||0);
-      const w=Math.min(260, ctx.measureText(k).width+16);
+      const w=Math.min(300, ctx.measureText(k).width+16);
       const h=22;
       if(mx>=x && mx<=x+w && my>=y && my<=y+h) return {k,x,y,w,h};
     }
@@ -550,6 +603,7 @@
       selectedKey=null; draggingKey=null;
     }
     updateSelInfo();
+    syncStyleUIFromSelected();
     draw();
   });
 
@@ -563,6 +617,72 @@
     draw();
   });
   window.addEventListener("mouseup",()=>{draggingKey=null;});
+
+  // ===== Style UI =====
+  const stFont=document.getElementById("stFont");
+  const stSize=document.getElementById("stSize");
+  const stWeight=document.getElementById("stWeight");
+  const stColor=document.getElementById("stColor");
+  const stOpacity=document.getElementById("stOpacity");
+  const stAlign=document.getElementById("stAlign");
+  const stLs=document.getElementById("stLs");
+  const stShadow=document.getElementById("stShadow");
+
+  function syncStyleUIFromSelected(){
+    if(!selectedKey || !activeTpl?.fields?.[selectedKey]){
+      stFont.value = 'Arial, "맑은 고딕", sans-serif';
+      stSize.value = 20;
+      stWeight.value = 600;
+      stColor.value = "#ffffff";
+      stOpacity.value = 1;
+      stAlign.value = "left";
+      stLs.value = 0;
+      stShadow.value = "0 2px 10px rgba(0,0,0,0.25)";
+      return;
+    }
+    const s = activeTpl.fields[selectedKey];
+    stFont.value = s.fontFamily || 'Arial, "맑은 고딕", sans-serif';
+    stSize.value = Number(s.fontSize ?? 20);
+    stWeight.value = String(s.fontWeight ?? 600);
+    stColor.value = (s.color && s.color.startsWith("#")) ? s.color : "#ffffff";
+    stOpacity.value = Number(s.opacity ?? 1);
+    stAlign.value = s.align || "left";
+    stLs.value = Number(s.letterSpacing ?? 0);
+    stShadow.value = s.textShadow || "0 2px 10px rgba(0,0,0,0.25)";
+  }
+
+  function applyStyleFromUI(){
+    if(!selectedKey || !activeTpl?.fields?.[selectedKey]) return alert("필드를 먼저 선택하세요.");
+    const s = activeTpl.fields[selectedKey];
+
+    s.fontFamily = stFont.value;
+    s.fontSize = clampNum(Number(stSize.value), 8, 200, 20);
+    s.fontWeight = clampNum(Number(stWeight.value), 100, 900, 600);
+    s.color = stColor.value || "#ffffff";
+    s.opacity = clampNum(Number(stOpacity.value), 0, 1, 1);
+    s.align = stAlign.value || "left";
+    s.letterSpacing = clampNum(Number(stLs.value), -5, 20, 0);
+    s.textShadow = stShadow.value || "none";
+
+    updateSelInfo();
+    draw();
+  }
+
+  function resetSelectedStyle(){
+    if(!selectedKey || !activeTpl?.fields?.[selectedKey]) return alert("필드를 먼저 선택하세요.");
+    const keep = activeTpl.fields[selectedKey];
+    const base = defaultFieldStyle();
+    // 위치는 유지
+    base.x = keep.x; base.y = keep.y;
+    activeTpl.fields[selectedKey] = base;
+    syncStyleUIFromSelected();
+    draw();
+  }
+
+  function clampNum(v, min, max, fallback){
+    if(Number.isNaN(v)) return fallback;
+    return Math.max(min, Math.min(max, v));
+  }
 
   // ===== Reload =====
   async function reloadPublicData(){
@@ -579,25 +699,22 @@
     }
 
     renderTplSelect();
-    if(activeTpl){
-      tplName.value = activeTpl.name || "";
-    }
+    if(activeTpl) tplName.value = activeTpl.name || "";
     selectedKey=null;
+
     renderEnabledBox();
     loadBg();
     updateSelInfo();
+    syncStyleUIFromSelected();
     draw();
   }
 
   async function bootData(){
-    // ✅ 줌 먼저 세팅(캔버스 크기 결정)
-    setZoom(Number(zoomSel.value || "4"));
+    setZoom(Number(zoomSel.value || "1"));
     await reloadPublicData();
-    // 템플릿 로드 후 가운데로
     centerCanvas();
   }
 
-  // ===== Boot =====
   (async function boot(){
     const token=getToken(), exp=getExp();
     if(token && exp && exp>Date.now()){
